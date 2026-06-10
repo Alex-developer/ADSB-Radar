@@ -1,0 +1,11 @@
+## IDF Component Manager Manifest File
+dependencies:
+  lvgl/lvgl:
+    version: ^9.*
+    public: true
+  espressif/usb: '*'
+  espressif/esp_wifi_remote:
+    version: 0.14.*
+  espressif/esp_hosted:
+    version: 1.4.*
+  espressif/usb_host_cdc_acm: ^2.4.0

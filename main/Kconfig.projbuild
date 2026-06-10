@@ -1,0 +1,45 @@
+menu "Radar Console"
+
+    config RADAR_WIFI_SSID
+        string "WiFi SSID"
+        default ""
+        help
+            WiFi network name used by the ESP32-C6 hosted WiFi coprocessor.
+
+    config RADAR_WIFI_PASSWORD
+        string "WiFi password"
+        default ""
+        help
+            WiFi password. Leave empty only for an open network.
+
+    config RADAR_WIFI_MAX_RETRY
+        int "WiFi reconnect retry window"
+        default 8
+        range 1 30
+        help
+            Number of failed station reconnect attempts before the radar falls
+            back to the captive portal flow.
+
+    config RADAR_CENTER_LAT
+        string "Radar centre latitude"
+        default "51.5073219"
+        help
+            Build-time default radar centre latitude. The browser settings page
+            can override this at runtime.
+
+    config RADAR_CENTER_LON
+        string "Radar centre longitude"
+        default "-0.1276474"
+        help
+            Build-time default radar centre longitude. The browser settings page
+            can override this at runtime.
+
+    config RADAR_FETCH_INTERVAL_SEC
+        int "Aircraft fetch interval in seconds"
+        default 10
+        range 5 120
+        help
+            Legacy default aircraft refresh interval. Runtime range settings now
+            provide the active refresh intervals.
+
+endmenu
