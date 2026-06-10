@@ -15,13 +15,25 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
   <link href="https://cdn.datatables.net/v/bs5/dt-2.1.8/rg-1.5.0/datatables.min.css" rel="stylesheet">
+  <script>
+    (function(){
+      var match=document.cookie.match(/(?:^|;\s*)adsbRadarTheme=([^;]+)/);
+      var theme=match?decodeURIComponent(match[1]):'light';
+      if(theme!=='dark') theme='light';
+      document.documentElement.setAttribute('data-theme',theme);
+      document.documentElement.setAttribute('data-bs-theme',theme);
+    })();
+  </script>
   <style>
-    :root{--ag-primary:#3b7ddd;--ag-primary-dark:#2f64b1;--ag-sidebar:#222e3c;--ag-sidebar-2:#1c2633;--ag-body:#f5f7fb;--ag-text:#495057;--ag-heading:#233242;--ag-muted:#6c757d;--ag-line:#dee6ed;--ag-panel:#ffffff;--ag-soft:#f8f9fa;--ag-shadow:0 .1rem .2rem rgba(0,0,0,.05)}
+    :root{--ag-primary:#3b7ddd;--ag-primary-dark:#2f64b1;--ag-sidebar:#222e3c;--ag-sidebar-2:#1c2633;--ag-body:#f5f7fb;--ag-text:#495057;--ag-heading:#233242;--ag-muted:#6c757d;--ag-line:#dee6ed;--ag-panel:#ffffff;--ag-card:#ffffff;--ag-soft:#f8f9fa;--ag-subtle:#fbfcfe;--ag-hover:#f8fbff;--ag-input:#ffffff;--ag-input-border:#ced4da;--ag-shadow:0 .1rem .2rem rgba(0,0,0,.05)}
+    html[data-theme=dark]{--ag-primary:#60a5fa;--ag-primary-dark:#3b82f6;--ag-sidebar:#111827;--ag-sidebar-2:#0b1120;--ag-body:#0f172a;--ag-text:#cbd5e1;--ag-heading:#f8fafc;--ag-muted:#94a3b8;--ag-line:#334155;--ag-panel:#172033;--ag-card:#182235;--ag-soft:#111827;--ag-subtle:#1e293b;--ag-hover:#1d4ed81a;--ag-input:#0f172a;--ag-input-border:#334155;--ag-shadow:0 .35rem 1rem rgba(0,0,0,.22);color-scheme:dark}
     *{box-sizing:border-box}
     html,body{height:100%;min-height:100%;overflow:hidden}
     body{background:var(--ag-body);color:var(--ag-text);font-size:.875rem}
     .page-shell{max-width:none;padding:0!important}
     .app-header{background:#fff;border:0;border-bottom:1px solid #e9ecef;border-radius:0;box-shadow:var(--ag-shadow);color:var(--ag-text);padding:.85rem 1.5rem!important;margin:0!important;min-height:64px}
+    .theme-switch .btn{min-height:34px;padding:.35rem .65rem}
+    .theme-switch .btn.active{background:var(--ag-primary);border-color:var(--ag-primary);color:#fff}
     .brand-logo{width:34px;height:34px;display:grid;place-items:center;border-radius:.25rem;background:#17202b;border:1px solid rgba(255,255,255,.08);flex:0 0 auto}
     .brand-logo svg{width:29px;height:29px;display:block}
     .brand-kicker,.small-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ag-muted);font-weight:700}
@@ -64,6 +76,8 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .editor-intro h3{font-size:1rem;margin:0;color:var(--ag-heading);font-weight:600}
     .editor-intro p{margin:.25rem 0 0;color:var(--ag-muted);line-height:1.45}
     .editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+    .range-list{display:flex;flex-direction:column;gap:1rem}
+    .notification-list{display:flex;flex-direction:column;gap:1rem}
     .range-row,.notify-row{background:#fff;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;box-shadow:var(--ag-shadow)}
     .range-row{display:flex;flex-direction:column;gap:1rem}
     .range-row .editor-card-head,.notify-row .editor-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;border-bottom:1px solid #edf0f2;padding-bottom:.75rem}
@@ -71,14 +85,22 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .editor-card-icon{width:2.4rem;height:2.4rem;border-radius:.35rem;display:grid;place-items:center;background:#eef5ff;color:var(--ag-primary);font-size:1.15rem;flex:0 0 auto}
     .editor-card-title h3{font-size:1rem;margin:0;color:var(--ag-heading);font-weight:600}
     .editor-card-title p{margin:0;color:var(--ag-muted);line-height:1.45}
+    .range-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:end}
+    .range-field-card{background:#fbfcfe;border:1px solid #edf0f2;border-radius:.35rem;padding:.85rem}
+    .range-field-card .form-label{display:flex;align-items:center;gap:.45rem;color:#495057}
+    .range-field-card .form-label i{color:var(--ag-primary)}
     .notify-row{display:flex;flex-direction:column;gap:1rem}
     .notify-row .form-switch{padding:.25rem 0 .25rem 2.75rem;background:transparent;border:0;min-height:auto}
     .notify-row .form-switch .form-check-input{margin-left:-2.75rem}
+    .notify-switches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+    .notify-switches .form-switch{border:1px solid #edf0f2!important;border-radius:.35rem!important;background:#fbfcfe!important;padding:.8rem .9rem .8rem 3.2rem!important;min-height:54px!important;display:flex;align-items:center}
+    .notify-switches .form-switch .form-check-input{margin-left:-2.35rem!important}
+    .notify-switches .form-check-label{line-height:1.25;padding-left:.15rem}
     .dashboard-panel{background:#fff;border:1px solid #dee2e6;border-top:0;border-radius:0 0 .25rem .25rem;padding:1rem}
     .dashboard-section{background:#fff;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;box-shadow:var(--ag-shadow);height:100%}
     .dashboard-section h2{font-size:1rem;font-weight:600;color:var(--ag-heading)}
     .dashboard-mini-card{border:1px solid #e9ecef;border-radius:.35rem;background:#fff;padding:1rem;height:100%;box-shadow:var(--ag-shadow)}
-    .screenshot-frame{background:#07120b;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;text-align:center}
+    .screenshot-frame{background:var(--ag-panel);border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;text-align:center}
     .screenshot-section{position:relative;min-height:360px}
     .screenshot-loading{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.82);backdrop-filter:blur(2px);border-radius:.35rem;cursor:wait}
     .screenshot-loading.active{display:flex}
@@ -137,8 +159,39 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .width-control{max-width:110px}.ui-control{max-width:140px}
     .btn{border-radius:.25rem;font-weight:500;min-height:38px}.btn-primary{background:var(--ag-primary);border-color:var(--ag-primary)}.btn-primary:hover,.btn-primary:focus{background:var(--ag-primary-dark);border-color:var(--ag-primary-dark)}.btn-outline-primary{color:var(--ag-primary);border-color:var(--ag-primary)}.btn-outline-primary:hover{background:var(--ag-primary);border-color:var(--ag-primary)}.btn-outline-secondary{border-color:#ced4da;color:#495057}.btn-outline-secondary:hover{background:#f8f9fa;border-color:#adb5bd;color:#212529}
     .badge{font-weight:600}
+    html[data-theme=dark] .app-header,html[data-theme=dark] .settings-layout-card,html[data-theme=dark] .settings-card,html[data-theme=dark] .tab-pane>.section-title,html[data-theme=dark] .editor-intro,html[data-theme=dark] .range-row,html[data-theme=dark] .notify-row,html[data-theme=dark] .dashboard-panel,html[data-theme=dark] .dashboard-section,html[data-theme=dark] .dashboard-mini-card,html[data-theme=dark] .style-group,html[data-theme=dark] .style-tab-content,html[data-theme=dark] .display-card,html[data-theme=dark] .metric-card,html[data-theme=dark] .location-panel,html[data-theme=dark] .location-source,html[data-theme=dark] .data-source-card,html[data-theme=dark] .service-card{background:var(--ag-card);border-color:var(--ag-line);color:var(--ag-text)}
+    html[data-theme=dark] .status-card,html[data-theme=dark] .range-field-card,html[data-theme=dark] .notify-switches .form-switch,html[data-theme=dark] .source-helper,html[data-theme=dark] .map-readout,html[data-theme=dark] .screenshot-loading-box{background:var(--ag-subtle)!important;border-color:var(--ag-line)!important;color:var(--ag-text)}
+    html[data-theme=dark] .settings-card,html[data-theme=dark] .settings-card{border-color:var(--ag-line)}
+    html[data-theme=dark] .range-row .editor-card-head,html[data-theme=dark] .notify-row .editor-card-head,html[data-theme=dark] .tab-pane>.section-title,html[data-theme=dark] .style-row,html[data-theme=dark] .app-header{border-color:var(--ag-line)!important}
+    html[data-theme=dark] .brand-title,html[data-theme=dark] .page-title,html[data-theme=dark] .section-title h2,html[data-theme=dark] .editor-intro h3,html[data-theme=dark] .editor-card-title h3,html[data-theme=dark] .dashboard-section h2,html[data-theme=dark] .display-card-head h3,html[data-theme=dark] .location-source h3,html[data-theme=dark] .data-source-card h3,html[data-theme=dark] .service-card h3,html[data-theme=dark] .metric-value,html[data-theme=dark] .h5{color:var(--ag-heading)!important}
+    html[data-theme=dark] .text-muted,html[data-theme=dark] .brand-copy,html[data-theme=dark] .section-title p,html[data-theme=dark] .editor-intro p,html[data-theme=dark] .editor-card-title p,html[data-theme=dark] .display-card-head p,html[data-theme=dark] .location-source p,html[data-theme=dark] .data-source-card p,html[data-theme=dark] .form-text,html[data-theme=dark] .small-label{color:var(--ag-muted)!important}
+    html[data-theme=dark] .form-label,html[data-theme=dark] .range-field-card .form-label{color:var(--ag-text)}
+    html[data-theme=dark] .form-control,html[data-theme=dark] .form-select,html[data-theme=dark] .input-group-text,html[data-theme=dark] textarea{background-color:var(--ag-input);border-color:var(--ag-input-border);color:var(--ag-heading)}
+    html[data-theme=dark] .form-control::placeholder{color:#64748b}
+    html[data-theme=dark] .form-control:disabled,html[data-theme=dark] .form-select:disabled{background-color:#111827;color:#64748b}
+    html[data-theme=dark] .form-check.form-switch{background:var(--ag-card);border-color:var(--ag-line)}
+    html[data-theme=dark] .location-source:hover,html[data-theme=dark] .data-source-card:hover,html[data-theme=dark] .location-source.active,html[data-theme=dark] .data-source-card.active{background:var(--ag-hover);border-color:var(--ag-primary)}
+    html[data-theme=dark] .editor-card-icon,html[data-theme=dark] .location-source .source-icon,html[data-theme=dark] .data-source-card .source-icon{background:#1e3a5f;color:#bfdbfe}
+    html[data-theme=dark] .service-card .service-icon{background:var(--ag-subtle);border-color:var(--ag-line);color:var(--ag-text)}
+    html[data-theme=dark] .source-badge{background:#172554;border-color:#1d4ed8;color:#bfdbfe}
+    html[data-theme=dark] .style-tabs{border-bottom-color:var(--ag-line)}
+    html[data-theme=dark] .style-tabs .nav-link{color:var(--ag-text)}
+    html[data-theme=dark] .style-tabs .nav-link:hover{background:var(--ag-subtle);border-color:var(--ag-line);color:var(--ag-primary)}
+    html[data-theme=dark] .style-tabs .nav-link.active{background:var(--ag-card);border-color:var(--ag-line) var(--ag-line) var(--ag-card);color:var(--ag-primary)}
+    html[data-theme=dark] .table{color:var(--ag-text);--bs-table-color:var(--ag-text);--bs-table-border-color:var(--ag-line);--bs-table-striped-bg:#111827;--bs-table-hover-bg:#1e293b}
+    html[data-theme=dark] .table thead th,html[data-theme=dark] .table tbody td,html[data-theme=dark] .table tbody th{border-color:var(--ag-line);color:var(--ag-text)}
+    html[data-theme=dark] tr.dtrg-group th{background:var(--ag-subtle)!important;color:var(--ag-heading)!important}
+    html[data-theme=dark] .list-group-item{background:var(--ag-card);border-color:var(--ag-line);color:var(--ag-text)}
+    html[data-theme=dark] .alert{background:var(--ag-subtle);border-color:var(--ag-line);color:var(--ag-text)}
+    html[data-theme=dark] .alert-light{background:var(--ag-subtle)!important;color:var(--ag-text)!important}
+    html[data-theme=dark] .btn-outline-secondary{border-color:var(--ag-line);color:var(--ag-text)}
+    html[data-theme=dark] .btn-outline-secondary:hover{background:var(--ag-subtle);border-color:var(--ag-muted);color:var(--ag-heading)}
+    html[data-theme=dark] .btn-outline-primary{color:var(--ag-primary);border-color:var(--ag-primary)}
+    html[data-theme=dark] .screenshot-frame{background:var(--ag-panel);border-color:var(--ag-line)}
+    html[data-theme=dark] .screenshot-loading{background:rgba(15,23,42,.82)}
+    html[data-theme=dark] .dt-container .dt-input{background-color:var(--ag-input);border-color:var(--ag-input-border);color:var(--ag-heading)}
     @media (max-width:1199.98px){.sidebar-col{width:76px;flex-basis:76px}.content-col{width:calc(100% - 76px);flex-basis:calc(100% - 76px)}.nav-card .card-header{padding:1rem .65rem}.nav-brand{justify-content:center;margin-bottom:0}.nav-brand span,.nav-card .small-label,.nav-pills .nav-label{display:none}.nav-pills .nav-link{justify-content:center;padding:.85rem .5rem}.nav-pills .nav-link.active{box-shadow:inset 0 0 0 1px rgba(59,125,221,.55)}.nav-pills .nav-icon{font-size:1.2rem}}
-    @media (max-width:991.98px){html,body{height:auto;min-height:100%;overflow:auto}.nav-card{min-height:100vh;border-radius:0}.content-wrap{height:auto;min-height:calc(100vh - 64px);padding:1rem;overflow:visible}.settings-layout-card{height:auto}.settings-card{height:auto}.settings-card>.tab-pane{height:auto;max-height:none}.brand-logo{width:34px;height:34px}.brand-logo svg{width:29px;height:29px}.settings-card{border-left:1px solid #edf0f2;border-top:0}#locationMap{height:420px}.location-source-grid,.data-source-grid,.editor-grid{grid-template-columns:1fr}}
+    @media (max-width:991.98px){html,body{height:auto;min-height:100%;overflow:auto}.nav-card{min-height:100vh;border-radius:0}.content-wrap{height:auto;min-height:calc(100vh - 64px);padding:1rem;overflow:visible}.settings-layout-card{height:auto}.settings-card{height:auto}.settings-card>.tab-pane{height:auto;max-height:none}.brand-logo{width:34px;height:34px}.brand-logo svg{width:29px;height:29px}.settings-card{border-left:1px solid #edf0f2;border-top:0}#locationMap{height:420px}.location-source-grid,.data-source-grid,.editor-grid,.notify-switches,.range-fields{grid-template-columns:1fr}}
     @media (max-width:575.98px){.sidebar-col{width:62px;flex-basis:62px}.content-col{width:calc(100% - 62px);flex-basis:calc(100% - 62px)}.nav-card .card-header{padding:.75rem .45rem}.nav-card .card-body{padding:.35rem!important}.nav-pills .nav-link{padding:.75rem .35rem}.settings-card>.tab-pane{padding:1rem}.app-header{border-radius:0}}
   </style>
 </head>
@@ -179,6 +232,10 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     </aside>
     <div class="content-col">
       <div class="app-header d-flex flex-wrap align-items-center justify-content-end gap-3">
+        <div class="btn-group theme-switch" role="group" aria-label="Interface theme">
+          <button class="btn btn-outline-secondary" type="button" data-theme-choice="light" title="Light theme"><i class="bi bi-sun me-1"></i>Light</button>
+          <button class="btn btn-outline-secondary" type="button" data-theme-choice="dark" title="Dark theme"><i class="bi bi-moon-stars me-1"></i>Dark</button>
+        </div>
         <div class="status-card">
           <span class="brand-kicker me-2">Save status</span>
           <span id="saveStatus" class="badge rounded-pill text-bg-secondary">Loading</span>
@@ -416,7 +473,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
           <div><h3>Notification rules</h3><p>Match aircraft by type substring, colour them on the radar, keep their labels visible, and show optional banner text.</p></div>
         </div>
       </div>
-      <div id="notificationRows" class="editor-grid"></div>
+      <div id="notificationRows" class="notification-list"></div>
     </section>
     <section class="tab-pane fade" id="ranges">
       <div class="section-title">
@@ -432,7 +489,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
           <div><h3>Selectable radar ranges</h3><p>Each preset controls the range shown on the device, how often aircraft data refreshes, and how many labels can be drawn.</p></div>
         </div>
       </div>
-      <div id="rangeRows" class="editor-grid"></div>
+      <div id="rangeRows" class="range-list"></div>
     </section>
     <section class="tab-pane fade" id="wifi">
       <div class="section-title">
@@ -596,6 +653,12 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
 <script>
 const SETTINGS_EXPORT_VERSION=1;
 let cfg=null, defaults=null, selectedAirport=null, selectedLocation=null, latestGps=null, airportOptions={}, airportTimer=null, locationResults=[], aircraftTable=null, locationMap=null, locationMarker=null;
+	// Store the selected admin theme in the browser, not in device settings.
+	function setCookie(name,value,days){ let maxAge=days?`; max-age=${days*86400}`:''; document.cookie=`${name}=${encodeURIComponent(value)}; path=/${maxAge}; SameSite=Lax`; }
+	// Read a named cookie value.
+	function getCookie(name){ let match=document.cookie.match(new RegExp('(?:^|;\\s*)'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'=([^;]*)')); return match?decodeURIComponent(match[1]):''; }
+	// Apply the requested light or dark theme to Bootstrap and custom CSS.
+	function applyTheme(theme,store){ theme=theme==='dark'?'dark':'light'; document.documentElement.setAttribute('data-theme',theme); document.documentElement.setAttribute('data-bs-theme',theme); $('.theme-switch [data-theme-choice]').removeClass('active').attr('aria-pressed','false'); $(`.theme-switch [data-theme-choice="${theme}"]`).addClass('active').attr('aria-pressed','true'); if(store) setCookie('adsbRadarTheme',theme,365); }
 const styleDefs={
   screen_bg:{label:'Screen background'},radar_bg:{label:'Radar background'},radar_glow:{label:'Radar centre glow'},portal_bg:{label:'WiFi setup background'},
   radar_bright:{label:'Range rings / major ticks',width:true,visible:true,ui:[{key:'major_tick_length',label:'Major tick length',min:1,max:80},{key:'major_tick_degrees',label:'Major tick angle',min:1,max:90}]},
@@ -865,6 +928,8 @@ function renderStyleGroups(data){
               <div class="col-md-6 form-check form-switch"><input id="showRunways" class="form-check-input" type="checkbox"><label class="form-check-label" for="showRunways">Show selected airport runways</label></div>
               <div class="col-md-6 form-check form-switch"><input id="showCountries" class="form-check-input" type="checkbox"><label class="form-check-label" for="showCountries">Show country outlines</label></div>
               <div class="col-md-6 form-check form-switch"><input id="emergencyRed" class="form-check-input" type="checkbox"><label class="form-check-label" for="emergencyRed">Emergency squawks in red</label></div>
+              <div class="col-md-6 form-check form-switch"><input id="showAircraftRoutes" class="form-check-input" type="checkbox"><label class="form-check-label" for="showAircraftRoutes">Show route in aircraft popup</label></div>
+              <div class="col-md-6"><label class="form-label" for="routeStyle">Route display</label><select id="routeStyle" class="form-select"><option value="short">Short route codes</option><option value="long">Long airport names</option></select></div>
             </div>
           </div>
         </div>
@@ -894,6 +959,8 @@ function renderStyleGroups(data){
   $('#showRunways',content).prop('checked',!!data.interface.showAirportRunways);
   $('#showCountries',content).prop('checked',data.interface.showCountries);
   $('#emergencyRed',content).prop('checked',data.interface.emergencyRed);
+  $('#showAircraftRoutes',content).prop('checked',data.interface.showAircraftRoutes!==false);
+  $('#routeStyle',content).val(data.interface.routeStyle||'short');
   $('#showGroundAircraft',content).prop('checked',!!data.interface.showGroundAircraft);
   $('#groundSpeedKt',content).val(data.interface.groundSpeedKt ?? 30);
   let headingMode=data.interface.headingMode||(data.interface.showHeading?'arrow':'none');
@@ -920,9 +987,9 @@ function renderStyleGroups(data){
   root.append(tabs,content);
 }
 	// Build one range preset row.
-	function rangeRow(i,r){ r=r||{}; return `<div class="range-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-broadcast"></i></div><div><h3>Range ${i+1}</h3><p>${r.miles?`${r.miles} mile preset`:'Unused preset slot'}</p></div></div><span class="badge rounded-pill text-bg-light text-muted">Preset</span></div><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Miles</label><div class="input-group"><input class="form-control range-miles" type="number" min="0" max="250" value="${r.miles||''}"><span class="input-group-text">MI</span></div></div><div class="col-md-4"><label class="form-label">Refresh</label><div class="input-group"><input class="form-control range-refresh" type="number" min="2" max="300" value="${r.refresh||10}"><span class="input-group-text">sec</span></div></div><div class="col-md-4"><label class="form-label">Labels</label><input class="form-control range-labels" type="number" min="0" max="50" value="${r.labels??24}"></div></div></div>`; }
+	function rangeRow(i,r){ r=r||{}; let miles=r.miles||''; return `<div class="range-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-broadcast"></i></div><div><h3>Range ${i+1}</h3><p>${miles?`${miles} mile preset with ${r.refresh||10} second refresh`:'Unused preset slot'}</p></div></div><span class="badge rounded-pill ${miles?'text-bg-primary':'text-bg-light text-muted'}">${miles?`${miles} MI`:'Unused'}</span></div><div class="range-fields"><div class="range-field-card"><label class="form-label"><i class="bi bi-bullseye"></i>Range distance</label><div class="input-group"><input class="form-control range-miles" type="number" min="0" max="250" value="${miles}"><span class="input-group-text">MI</span></div><div class="form-text">Set to 0 to leave this preset unused.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-arrow-clockwise"></i>Aircraft refresh</label><div class="input-group"><input class="form-control range-refresh" type="number" min="2" max="300" value="${r.refresh||10}"><span class="input-group-text">sec</span></div><div class="form-text">How often data is fetched at this range.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-tags"></i>Visible labels</label><input class="form-control range-labels" type="number" min="0" max="50" value="${r.labels??24}"><div class="form-text">Notification matches are still labelled.</div></div></div></div>`; }
 	// Build one aircraft notification rule row.
-	function notifyRow(i,n){ n=n||{}; let enabled=n.enabled!==false,bold=!!n.boldText,type=esc(n.type||''),text=esc(n.text||''); return `<div class="notify-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-airplane"></i></div><div><h3>Notification ${i+1}</h3><p>${type?`Aircraft type contains "${type}"`:'Empty rule slot'}</p></div></div><button class="btn btn-sm btn-outline-danger delete-notification" type="button">Delete</button></div><div class="row g-3 align-items-end"><div class="col-sm-6 col-xl-3"><div class="form-check form-switch mb-0"><input class="form-check-input notify-enabled" type="checkbox" ${enabled?'checked':''}><label class="form-check-label">Enabled</label></div></div><div class="col-sm-6 col-xl-3"><div class="form-check form-switch mb-0"><input class="form-check-input notify-bold" type="checkbox" ${bold?'checked':''}><label class="form-check-label">Bold label</label></div></div><div class="col-md-6"><label class="form-label">Aircraft type contains</label><input class="form-control notify-type" maxlength="15" placeholder="A20N, B738, C130" value="${type}"></div><div class="col-md-6"><label class="form-label">Radar text</label><input class="form-control notify-text" maxlength="39" placeholder="Alert text shown on radar" value="${text}"></div><div class="col-md-4"><label class="form-label">Aircraft colour</label><input class="form-control form-control-color notify-color" type="color" value="${n.color||'#ffb020'}" title="Colour"></div></div></div>`; }
+	function notifyRow(i,n){ n=n||{}; let enabled=n.enabled!==false,bold=!!n.boldText,dim=!!n.dimOthers,type=esc(n.type||''),text=esc(n.text||''); return `<div class="notify-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-airplane"></i></div><div><h3>Notification ${i+1}</h3><p>${type?`Aircraft type contains "${type}"`:'Empty rule slot'}</p></div></div><button class="btn btn-sm btn-outline-danger delete-notification" type="button">Delete</button></div><div class="notify-switches"><div class="form-check form-switch mb-0"><input class="form-check-input notify-enabled" type="checkbox" ${enabled?'checked':''}><label class="form-check-label">Enabled</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-bold" type="checkbox" ${bold?'checked':''}><label class="form-check-label">Bold label</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-dim" type="checkbox" ${dim?'checked':''}><label class="form-check-label">Dim other aircraft</label></div></div><div class="row g-3 align-items-end"><div class="col-lg-4"><label class="form-label">Aircraft type contains</label><input class="form-control notify-type" maxlength="15" placeholder="A20N, B738, C130" value="${type}"></div><div class="col-lg-6"><label class="form-label">Radar text</label><input class="form-control notify-text" maxlength="39" placeholder="Alert text shown on radar" value="${text}"></div><div class="col-lg-2"><label class="form-label">Aircraft colour</label><input class="form-control form-control-color notify-color" type="color" value="${n.color||'#ffb020'}" title="Colour"></div></div></div>`; }
 	// Rebuild the notification editor rows from a compacted notification list.
 	function renderNotificationRows(items){ let rows=$('#notificationRows').empty(); items=items||[]; for(let i=0;i<10;i++) rows.append(notifyRow(i,items[i])); }
 	// Create the display label used by the airport autocomplete and selection state.
@@ -948,7 +1015,7 @@ function renderStyleGroups(data){
 	// Collect the range preset rows into the settings payload format.
 	function collectRanges(){ let ranges=[]; $('#rangeRows .range-row').each(function(){ ranges.push({miles:+$('.range-miles',this).val()||0, refresh:+$('.range-refresh',this).val()||10, labels:+$('.range-labels',this).val()||0}); }); return ranges; }
 	// Collect the aircraft notification rule rows.
-	function collectNotifications(){ let items=[]; $('#notificationRows .notify-row').each(function(){ items.push({enabled:$('.notify-enabled',this).is(':checked'), boldText:$('.notify-bold',this).is(':checked'), type:$('.notify-type',this).val(), color:$('.notify-color',this).val(), text:$('.notify-text',this).val()}); }); return items; }
+	function collectNotifications(){ let items=[]; $('#notificationRows .notify-row').each(function(){ items.push({enabled:$('.notify-enabled',this).is(':checked'), boldText:$('.notify-bold',this).is(':checked'), dimOthers:$('.notify-dim',this).is(':checked'), type:$('.notify-type',this).val(), color:$('.notify-color',this).val(), text:$('.notify-text',this).val()}); }); return items; }
 	// Collect configured element colours by firmware colour key.
 	function collectColors(){ let colors={}; $('.color-value').each(function(){ if(($(this).data('source')||'colors')==='colors') colors[$(this).data('key')]=$(this).val(); }); return colors; }
 	// Collect configured altitude band colours by firmware altitude key.
@@ -962,7 +1029,7 @@ function renderStyleGroups(data){
 	// Collect configured radar label fonts and sizes.
 	function collectLabelStyles(){ let styles={}; $('.label-font-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].font=$(this).val(); }); $('.label-size-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].size=clampRange($(this).val(),10,22); }); return styles; }
 	// Build the complete settings payload sent to the ESP32.
-	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked')}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
+	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked')}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
 	// Load factory defaults so reset buttons can restore only selected groups.
 	function loadDefaults(){ $.getJSON('/api/settings/defaults').done(data=>defaults=data); }
 	// Load current settings and refresh the defaults cache.
@@ -1109,6 +1176,7 @@ $('#importSettingsFile').on('change',function(){
 });
 $('#aircraftStatusRows').on('click','.add-notification-type',function(){ addNotificationForType($(this).data('type')); });
 $('#refreshDeviceStatus').on('click',loadDeviceStatus);
+$('.theme-switch [data-theme-choice]').on('click',function(){ applyTheme($(this).data('theme-choice'),true); });
 $('button[data-bs-toggle="tab"]').on('shown.bs.tab',function(e){
   let id=$($(e.target).data('bs-target')).attr('id');
   if(hashByStatusTab[id]) setPageHash(hashByStatusTab[id]);
@@ -1118,7 +1186,7 @@ $('button[data-bs-toggle="tab"]').on('shown.bs.tab',function(e){
 $('button[data-bs-target="#statusScreenshot"]').on('shown.bs.tab',loadScreenshot);
 $('#refreshScreenshot').on('click',loadScreenshot);
 $('button[data-bs-target="#espStatus"]').on('shown.bs.tab',loadDeviceStatus);
-$(function(){ activateTabFromUrl(); loadSettings(); if($('#espStatus').hasClass('active')) loadDeviceStatus(); });
+$(function(){ applyTheme(getCookie('adsbRadarTheme')||document.documentElement.getAttribute('data-theme')||'light',false); activateTabFromUrl(); loadSettings(); if($('#espStatus').hasClass('active')) loadDeviceStatus(); });
 $(window).on('hashchange',activateTabFromUrl);
 setInterval(()=>{ if(cfg&&$('#centerSource').val()==='gps') $.getJSON('/api/settings').done(data=>renderGps(data.gps)); },5000);
 setInterval(()=>{ if($('#espStatus').hasClass('active')) loadDeviceStatus(); },5000);

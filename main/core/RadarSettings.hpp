@@ -48,6 +48,8 @@
 #define AIRCRAFT_DATA_SOURCE_ADSB_LOL 1
 #define AIRCRAFT_DATA_SOURCE_LOCAL 2
 #define AIRCRAFT_DATA_SOURCE_ADSB_FI 3
+#define AIRCRAFT_ROUTE_STYLE_SHORT 0
+#define AIRCRAFT_ROUTE_STYLE_LONG 1
 
 /* One user-selectable radar range, including fetch cadence and label budget. */
 typedef struct {
@@ -66,6 +68,7 @@ typedef struct {
     char type_match[16];
     bool enabled;
     bool bold_text;
+    bool dim_others;
     uint32_t color;
     char text[40];
 } notification_setting_t;
@@ -220,6 +223,8 @@ typedef struct {
     bool show_aircraft_heading;
     int aircraft_heading_style;
     bool show_climb_descent;
+    bool show_aircraft_routes;
+    int aircraft_route_style;
     bool show_countries;
     bool show_airport_runways;
     char airportdb_api_token[AIRPORTDB_API_TOKEN_MAX];

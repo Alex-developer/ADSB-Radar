@@ -592,6 +592,8 @@ void RadarSettings::setDefaults()
     show_aircraft_heading = true;
     aircraft_heading_style = RADAR_HEADING_STYLE_ARROW;
     show_climb_descent = false;
+    show_aircraft_routes = true;
+    aircraft_route_style = AIRCRAFT_ROUTE_STYLE_SHORT;
     show_ground_aircraft = false;
     ground_speed_kt = RADAR_SETTINGS_DEFAULT_GROUND_SPEED_KT;
     show_countries = true;
@@ -616,6 +618,7 @@ void RadarSettings::setDefaults()
     for (size_t i = 0; i < MAX_NOTIFICATION_SETTINGS; ++i) {
         notifications[i].enabled = true;
         notifications[i].bold_text = false;
+        notifications[i].dim_others = false;
         notifications[i].color = 0xffb020;
     }
 }
@@ -903,6 +906,13 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
         candidate->show_countries = parse_bool_item(interface, "showCountries", candidate->show_countries);
         candidate->show_airport_runways = parse_bool_item(interface, "showAirportRunways", candidate->show_airport_runways);
         candidate->emergency_squawks_red = parse_bool_item(interface, "emergencyRed", candidate->emergency_squawks_red);
+        candidate->show_aircraft_routes = parse_bool_item(interface, "showAircraftRoutes", candidate->show_aircraft_routes);
+        cJSON *route_style = cJSON_GetObjectItemCaseSensitive(interface, "routeStyle");
+        if (cJSON_IsString(route_style) && route_style->valuestring) {
+            candidate->aircraft_route_style =
+                strcmp(route_style->valuestring, "long") == 0 ?
+                AIRCRAFT_ROUTE_STYLE_LONG : AIRCRAFT_ROUTE_STYLE_SHORT;
+        }
         candidate->show_ground_aircraft = parse_bool_item(interface, "showGroundAircraft", candidate->show_ground_aircraft);
         candidate->ground_speed_kt =
             clamp_int(parse_int_item(interface, "groundSpeedKt", candidate->ground_speed_kt),
@@ -987,6 +997,7 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
         for (size_t i = 0; i < MAX_NOTIFICATION_SETTINGS; ++i) {
             candidate->notifications[i].enabled = true;
             candidate->notifications[i].bold_text = false;
+            candidate->notifications[i].dim_others = false;
             candidate->notifications[i].color = 0xffb020;
         }
         size_t out = 0;
@@ -1003,6 +1014,8 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
                 parse_bool_item(notification, "enabled", true);
             candidate->notifications[out].bold_text =
                 parse_bool_item(notification, "boldText", false);
+            candidate->notifications[out].dim_others =
+                parse_bool_item(notification, "dimOthers", false);
             candidate->notifications[out].color =
                 parse_color_value(cJSON_GetObjectItemCaseSensitive(notification, "color"), 0xffb020);
             ++out;
@@ -1096,6 +1109,9 @@ char *RadarSettings::toJson(const char *wifi_ssid) const
     cJSON_AddBoolToObject(interface, "showCountries", show_countries);
     cJSON_AddBoolToObject(interface, "showAirportRunways", show_airport_runways);
     cJSON_AddBoolToObject(interface, "emergencyRed", emergency_squawks_red);
+    cJSON_AddBoolToObject(interface, "showAircraftRoutes", show_aircraft_routes);
+    cJSON_AddStringToObject(interface, "routeStyle",
+                            aircraft_route_style == AIRCRAFT_ROUTE_STYLE_LONG ? "long" : "short");
     cJSON_AddBoolToObject(interface, "showGroundAircraft", show_ground_aircraft);
     cJSON_AddNumberToObject(interface, "groundSpeedKt", ground_speed_kt);
     cJSON_AddBoolToObject(interface, "showHeading", show_aircraft_heading);
@@ -1129,6 +1145,7 @@ char *RadarSettings::toJson(const char *wifi_ssid) const
         cJSON_AddStringToObject(notification, "type", notifications[i].type_match);
         cJSON_AddBoolToObject(notification, "enabled", notifications[i].enabled);
         cJSON_AddBoolToObject(notification, "boldText", notifications[i].bold_text);
+        cJSON_AddBoolToObject(notification, "dimOthers", notifications[i].dim_others);
         cJSON_AddStringToObject(notification, "color", color);
         cJSON_AddStringToObject(notification, "text", notifications[i].text);
         cJSON_AddItemToArray(notification_array, notification);

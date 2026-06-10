@@ -21,6 +21,7 @@
 #include "AircraftDataService.hpp"
 #include "AircraftFetchService.hpp"
 #include "AircraftPhotoService.hpp"
+#include "AircraftRouteService.hpp"
 #include "AirportRunwayService.hpp"
 #include "CaptivePortal.hpp"
 #include "GpsReceiver.hpp"
@@ -62,6 +63,7 @@ private:
     friend class WifiManager;
     friend class AircraftFetchService;
     friend class AircraftPhotoService;
+    friend class AircraftRouteService;
     friend class AircraftPopupController;
     friend class CurvedButtonController;
 
@@ -109,6 +111,7 @@ private:
     lv_obj_t *aircraft_popup_body = nullptr;
     lv_obj_t *aircraft_photo_image = nullptr;
     lv_obj_t *aircraft_photo_status = nullptr;
+    char aircraft_popup_base_body[320] = {};
 
     /* Static and dynamic labels placed around the radar. */
     lv_obj_t *notification_labels[MAX_NOTIFICATION_SETTINGS] = {};
@@ -150,10 +153,12 @@ private:
     size_t range_index = 2;
     aircraft_filter_t aircraft_filter = AIRCRAFT_FILTER_ALL;
     uint32_t aircraft_photo_request_id = 0;
+    uint32_t aircraft_route_request_id = 0;
     int wifi_retry_count = 0;
 
     /* Volatile flags touched by worker tasks or event callbacks. */
     volatile bool aircraft_photo_fetch_running = false;
+    volatile bool aircraft_route_fetch_running = false;
     volatile bool wifi_recovering = false;
     volatile bool wifi_started = false;
     volatile bool wifi_portal_active = false;
@@ -179,6 +184,7 @@ private:
     AircraftDataService aircraft_service = {};
     AircraftFetchService fetch_service = {};
     AircraftPhotoService photo_service = {};
+    AircraftRouteService route_service = {};
     AirportRunwayService runway_service = {};
     SettingsServer settings_server = {};
     AircraftPopupController popup_controller = {};
@@ -221,6 +227,9 @@ private:
 
     /* FreeRTOS entry point for the aircraft photo worker task. */
     static void aircraft_photo_fetch_task_entry(void *arg);
+
+    /* FreeRTOS entry point for the aircraft route worker task. */
+    static void aircraft_route_fetch_task_entry(void *arg);
 
     /* Forward the captive portal page request to the active app instance. */
     static esp_err_t portal_get_handler_entry(httpd_req_t *req);
@@ -447,10 +456,16 @@ private:
     void wifi_menu_clear_nvs_event(lv_event_t *event);
 
     /* Choose the marker colour for a displayed aircraft. */
-    uint32_t marker_color(const aircraft_data_t *aircraft, bool hit) const;
+    uint32_t marker_color(const aircraft_data_t *aircraft, bool hit, bool dimmed = false) const;
 
     /* Return the first configured notification that matches an aircraft type. */
     const notification_setting_t *matching_notification(const aircraft_data_t *aircraft) const;
+
+    /* Return whether an aircraft matches a notification that focuses the radar. */
+    bool matches_focus_notification(const aircraft_data_t *aircraft) const;
+
+    /* Return whether any visible aircraft has requested notification focus. */
+    bool notification_focus_active(const aircraft_data_t *snapshot, size_t count, int range_mi) const;
 
     /* Check whether an aircraft passes the current DATA menu filter. */
     bool aircraft_matches_filter(const aircraft_data_t *aircraft) const;
@@ -460,6 +475,9 @@ private:
 
     /* Clamp an integer value to an inclusive range. */
     static int clamp_int(int value, int min_value, int max_value);
+
+    /* Darken a plotted aircraft colour when notification focus is active. */
+    static uint32_t dim_colour(uint32_t color);
 
     /* Project an aircraft's bearing and distance into radar canvas coordinates. */
     static bool project_aircraft_to_radar(const aircraft_data_t *aircraft, int range_mi, int *x, int *y);
@@ -708,6 +726,18 @@ private:
 
     /* Start a photo fetch for the supplied aircraft ICAO hex value. */
     void start_aircraft_photo_fetch(const char *icao);
+
+    /* Check that an asynchronous route result still matches the open popup. */
+    bool route_request_is_current(uint32_t request_id);
+
+    /* Update popup route text from the route worker task. */
+    void update_aircraft_route_from_task(uint32_t request_id, const char *route_text);
+
+    /* Worker task that fetches route details for the popup. */
+    void aircraft_route_fetch_task(void *arg);
+
+    /* Start a route fetch for the supplied flight callsign. */
+    void start_aircraft_route_fetch(const char *callsign);
 
     /* Ask the WiFi manager task to start the captive portal. */
     void request_wifi_portal();

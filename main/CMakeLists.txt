@@ -45,6 +45,7 @@ set(APP_SOURCES
     aircraft/AircraftDataService.cpp
     aircraft/AircraftFetchService.cpp
     aircraft/AircraftPhotoService.cpp
+    aircraft/AircraftRouteService.cpp
     airports/AirportRunwayService.cpp
     core/RadarGeometry.cpp
     core/RadarPositionProvider.cpp

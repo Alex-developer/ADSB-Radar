@@ -215,6 +215,17 @@ void RadarApp::aircraft_photo_fetch_task_entry(void *arg)
     vTaskDeleteWithCaps(NULL);
 }
 
+/* Run the aircraft route worker through the active application instance. */
+void RadarApp::aircraft_route_fetch_task_entry(void *arg)
+{
+    if (active_app) {
+        active_app->aircraft_route_fetch_task(arg);
+        return;
+    }
+    heap_caps_free(arg);
+    vTaskDeleteWithCaps(NULL);
+}
+
 /* Forward captive portal GET requests to the active application instance. */
 esp_err_t RadarApp::portal_get_handler_entry(httpd_req_t *req)
 {
@@ -1108,44 +1119,47 @@ void RadarApp::wifi_menu_clear_nvs_event(lv_event_t *event)
     esp_restart();
 }
 
-/* Choose the colour used to plot one aircraft marker. */
-uint32_t RadarApp::marker_color(const aircraft_data_t *aircraft, bool hit) const
+/* Darken a colour while keeping enough channel detail for the marker to remain visible. */
+uint32_t RadarApp::dim_colour(uint32_t color)
 {
+    const uint32_t r = ((color >> 16) & 0xff) * 32U / 100U;
+    const uint32_t g = ((color >> 8) & 0xff) * 32U / 100U;
+    const uint32_t b = (color & 0xff) * 32U / 100U;
+    return (r << 16) | (g << 8) | b;
+}
+
+/* Choose the colour used to plot one aircraft marker. */
+uint32_t RadarApp::marker_color(const aircraft_data_t *aircraft, bool hit, bool dimmed) const
+{
+    uint32_t color = settings.altitude_colors.above_40000;
     if (hit) {
-        return settings.colors.aircraft_hit;
+        color = settings.colors.aircraft_hit;
+    } else if (aircraft && settings.emergency_squawks_red &&
+               (strcmp(aircraft->squawk, "7500") == 0 ||
+                strcmp(aircraft->squawk, "7600") == 0 ||
+                strcmp(aircraft->squawk, "7700") == 0)) {
+        color = settings.colors.aircraft_emergency;
+    } else {
+        const notification_setting_t *notification = matching_notification(aircraft);
+        if (notification) {
+            color = notification->color;
+        } else if (aircraft->seen_s > 7.5f) {
+            color = settings.colors.aircraft_stale;
+        } else if (aircraft->altitude_ft <= 0) {
+            color = settings.altitude_colors.ground;
+        } else if (aircraft->altitude_ft < 2000) {
+            color = settings.altitude_colors.below_2000;
+        } else if (aircraft->altitude_ft < 10000) {
+            color = settings.altitude_colors.below_10000;
+        } else if (aircraft->altitude_ft < 20000) {
+            color = settings.altitude_colors.below_20000;
+        } else if (aircraft->altitude_ft < 30000) {
+            color = settings.altitude_colors.below_30000;
+        } else if (aircraft->altitude_ft < 40000) {
+            color = settings.altitude_colors.below_40000;
+        }
     }
-    if (aircraft && settings.emergency_squawks_red &&
-        (strcmp(aircraft->squawk, "7500") == 0 ||
-         strcmp(aircraft->squawk, "7600") == 0 ||
-         strcmp(aircraft->squawk, "7700") == 0)) {
-        return settings.colors.aircraft_emergency;
-    }
-    const notification_setting_t *notification = matching_notification(aircraft);
-    if (notification) {
-        return notification->color;
-    }
-    if (aircraft->seen_s > 7.5f) {
-        return settings.colors.aircraft_stale;
-    }
-    if (aircraft->altitude_ft <= 0) {
-        return settings.altitude_colors.ground;
-    }
-    if (aircraft->altitude_ft < 2000) {
-        return settings.altitude_colors.below_2000;
-    }
-    if (aircraft->altitude_ft < 10000) {
-        return settings.altitude_colors.below_10000;
-    }
-    if (aircraft->altitude_ft < 20000) {
-        return settings.altitude_colors.below_20000;
-    }
-    if (aircraft->altitude_ft < 30000) {
-        return settings.altitude_colors.below_30000;
-    }
-    if (aircraft->altitude_ft < 40000) {
-        return settings.altitude_colors.below_40000;
-    }
-    return settings.altitude_colors.above_40000;
+    return dimmed ? dim_colour(color) : color;
 }
 
 /* Return the first notification rule whose aircraft-type text matches this aircraft. */
@@ -1164,6 +1178,41 @@ const notification_setting_t *RadarApp::matching_notification(const aircraft_dat
         }
     }
     return nullptr;
+}
+
+/* Check whether an aircraft matches a notification rule that focuses the radar. */
+bool RadarApp::matches_focus_notification(const aircraft_data_t *aircraft) const
+{
+    if (!aircraft || aircraft->type[0] == '\0') {
+        return false;
+    }
+    for (size_t i = 0; i < MAX_NOTIFICATION_SETTINGS; ++i) {
+        const notification_setting_t *notification = &settings.notifications[i];
+        if (!notification->enabled || !notification->dim_others || notification->type_match[0] == '\0') {
+            continue;
+        }
+        if (string_contains_ci(aircraft->type, notification->type_match)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Return whether any currently visible aircraft should focus the radar. */
+bool RadarApp::notification_focus_active(const aircraft_data_t *snapshot, size_t count, int range_mi) const
+{
+    for (size_t i = 0; i < count; ++i) {
+        if (snapshot[i].distance_mi > (float)range_mi) {
+            break;
+        }
+        if (!aircraft_matches_filter(&snapshot[i])) {
+            continue;
+        }
+        if (matches_focus_notification(&snapshot[i])) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /* Check whether an aircraft should be visible under the current DATA filter. */
@@ -2300,6 +2349,7 @@ void RadarApp::update_aircraft_plot(const aircraft_data_t *snapshot, size_t coun
     lv_display_enable_invalidation(display, false);
     lv_canvas_fill_bg(aircraft_canvas, lv_color_hex(0x000000), LV_OPA_TRANSP);
 
+    const bool focus_active = notification_focus_active(snapshot, count, range_mi);
     for (size_t i = 0; i < count; ++i) {
         if (snapshot[i].distance_mi > (float)range_mi) {
             break;
@@ -2313,7 +2363,8 @@ void RadarApp::update_aircraft_plot(const aircraft_data_t *snapshot, size_t coun
         int x = RADAR_CENTER + (int)(cosf(rad) * distance);
         int y = RADAR_CENTER + (int)(sinf(rad) * distance);
 
-        uint32_t color = marker_color(&snapshot[i], false);
+        const bool dimmed = focus_active && !matches_focus_notification(&snapshot[i]);
+        uint32_t color = marker_color(&snapshot[i], false, dimmed);
         if (settings.show_aircraft_heading && settings.visible.aircraft_heading) {
             draw_aircraft_heading_arrow(aircraft_canvas, x, y, snapshot[i].heading_deg,
                                         color,
@@ -2348,6 +2399,7 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
 
     size_t label_limit = get_current_label_limit();
     size_t label_index = 0;
+    const bool focus_active = notification_focus_active(snapshot, count, range_mi);
     for (size_t i = 0; i < count && label_index < MAX_AIRCRAFT_LABELS; ++i) {
         if (snapshot[i].distance_mi > (float)range_mi) {
             break;
@@ -2374,7 +2426,8 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
         lv_obj_clear_flag(marker->detail_label, LV_OBJ_FLAG_HIDDEN);
         lv_label_set_text(marker->callsign_label, snapshot[i].callsign);
         lv_label_set_text(marker->detail_label, snapshot[i].detail);
-        uint32_t color = marker_color(&snapshot[i], false);
+        const bool dimmed = focus_active && !matches_focus_notification(&snapshot[i]);
+        uint32_t color = marker_color(&snapshot[i], false, dimmed);
         lv_obj_set_style_text_color(marker->callsign_label, lv_color_hex(color), 0);
         lv_obj_set_style_text_color(marker->detail_label, lv_color_hex(color), 0);
         bool notification_highlight = notification != nullptr;
@@ -2383,9 +2436,11 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
         lv_obj_set_style_text_font(marker->detail_label,
                                    aircraft_label_font(true, notification_highlight), 0);
         lv_obj_set_style_text_opa(marker->callsign_label,
-                                  notification && notification->bold_text ? LV_OPA_COVER : LV_OPA_80, 0);
+                                  dimmed ? LV_OPA_40 :
+                                  (notification && notification->bold_text ? LV_OPA_COVER : LV_OPA_80), 0);
         lv_obj_set_style_text_opa(marker->detail_label,
-                                  notification && notification->bold_text ? LV_OPA_90 : LV_OPA_70, 0);
+                                  dimmed ? LV_OPA_30 :
+                                  (notification && notification->bold_text ? LV_OPA_90 : LV_OPA_70), 0);
 
         int label_x = x + 13;
         int label_y = y - 17;
@@ -2414,13 +2469,18 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
                 marker->trend_points[0] = {1, 8};
                 marker->trend_points[1] = {5, 1};
                 marker->trend_points[2] = {9, 8};
-                lv_obj_set_style_line_color(marker->trend_icon, lv_color_hex(settings.colors.climb_triangle), 0);
+                uint32_t trend_color = settings.colors.climb_triangle;
+                lv_obj_set_style_line_color(marker->trend_icon,
+                                            lv_color_hex(dimmed ? dim_colour(trend_color) : trend_color), 0);
             } else {
                 marker->trend_points[0] = {1, 1};
                 marker->trend_points[1] = {5, 8};
                 marker->trend_points[2] = {9, 1};
-                lv_obj_set_style_line_color(marker->trend_icon, lv_color_hex(settings.colors.descent_triangle), 0);
+                uint32_t trend_color = settings.colors.descent_triangle;
+                lv_obj_set_style_line_color(marker->trend_icon,
+                                            lv_color_hex(dimmed ? dim_colour(trend_color) : trend_color), 0);
             }
+            lv_obj_set_style_line_opa(marker->trend_icon, dimmed ? LV_OPA_40 : LV_OPA_COVER, 0);
             lv_obj_set_pos(marker->trend_icon, label_x, label_y + 15);
             lv_obj_clear_flag(marker->trend_icon, LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_pos(marker->detail_label, label_x + 13, label_y + 13);
@@ -3015,6 +3075,30 @@ void RadarApp::aircraft_photo_fetch_task(void *arg)
 void RadarApp::start_aircraft_photo_fetch(const char *icao)
 {
     photo_service.startFetch(icao);
+}
+
+/* Check whether a route worker result still belongs to the active popup. */
+bool RadarApp::route_request_is_current(uint32_t request_id)
+{
+    return route_service.requestIsCurrent(request_id);
+}
+
+/* Update popup route text from the route worker task. */
+void RadarApp::update_aircraft_route_from_task(uint32_t request_id, const char *route_text)
+{
+    route_service.updateRouteFromTask(request_id, route_text);
+}
+
+/* Run the route service worker for callsign route lookup. */
+void RadarApp::aircraft_route_fetch_task(void *arg)
+{
+    route_service.fetchTask(arg);
+}
+
+/* Start an asynchronous aircraft route fetch for the supplied callsign. */
+void RadarApp::start_aircraft_route_fetch(const char *callsign)
+{
+    route_service.startFetch(callsign);
 }
 
 /* Request captive portal mode from the WiFi manager. */
@@ -3769,6 +3853,7 @@ void RadarApp::run()
     wifi_manager.bind(this);
     fetch_service.bind(this);
     photo_service.bind(this);
+    route_service.bind(this);
     popup_controller.bind(this);
     curved_button_controller.bind(this);
     ESP_LOGI(TAG, "Starting Radar Console");

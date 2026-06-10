@@ -115,6 +115,7 @@ void AircraftPopupController::hide()
 {
     if (owner && owner->aircraft_popup) {
         owner->aircraft_photo_request_id++;
+        owner->aircraft_route_request_id++;
         releasePhotoImage();
         lv_obj_add_flag(owner->aircraft_popup, LV_OBJ_FLAG_HIDDEN);
     }
@@ -169,6 +170,7 @@ void AircraftPopupController::show(const aircraft_data_t *aircraft, int screen_x
              aircraft->distance_mi,
              aircraft->seen_s,
              vertical_text);
+    snprintf(owner->aircraft_popup_base_body, sizeof(owner->aircraft_popup_base_body), "%s", body);
     lv_label_set_text(owner->aircraft_popup_body, body);
 
     const int popup_w = AIRCRAFT_POPUP_W;
@@ -186,6 +188,7 @@ void AircraftPopupController::show(const aircraft_data_t *aircraft, int screen_x
     lv_obj_set_pos(owner->aircraft_popup, x, y);
     lv_obj_clear_flag(owner->aircraft_popup, LV_OBJ_FLAG_HIDDEN);
     owner->start_aircraft_photo_fetch(aircraft->icao);
+    owner->start_aircraft_route_fetch(aircraft->callsign);
 }
 
 /* Handle taps on the radar touch layer and show or hide the popup. */
@@ -305,7 +308,7 @@ void AircraftPopupController::create(lv_obj_t *screen)
     owner->aircraft_popup_body = RadarApp::make_label(owner->aircraft_popup, "",
                                                       &lv_font_montserrat_12,
                                                       owner->settings.colors.text_primary);
-    lv_obj_set_width(owner->aircraft_popup_body, AIRCRAFT_POPUP_W - 20);
+    lv_obj_set_size(owner->aircraft_popup_body, AIRCRAFT_POPUP_W - 20, AIRCRAFT_POPUP_H - 168);
     lv_label_set_long_mode(owner->aircraft_popup_body, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_line_space(owner->aircraft_popup_body, 2, 0);
     lv_obj_set_pos(owner->aircraft_popup_body, 10, 158);
