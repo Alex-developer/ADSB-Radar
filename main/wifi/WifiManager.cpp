@@ -106,6 +106,7 @@ void WifiManager::requestPortal()
     }
 
     owner->set_data_status("SET WIFI");
+    owner->update_oled_status("SET WIFI");
     owner->set_portal_status("Starting setup network");
     if (owner->wifi_event_group) {
         xEventGroupSetBits(owner->wifi_event_group, WIFI_PORTAL_REQUEST_BIT | FETCH_NOW_BIT);
@@ -310,12 +311,14 @@ bool WifiManager::startPortal()
         return false;
     }
     if (owner->wifi_portal_active) {
+        owner->update_oled_ip(WIFI_SETUP_AP_IP, true);
         owner->set_portal_status("Connect to %s then open %s", owner->setup_ap_ssid, WIFI_SETUP_AP_IP);
         return true;
     }
 
     owner->settings_server.stop();
     owner->set_data_status("SET WIFI");
+    owner->update_oled_status("SET WIFI");
     owner->set_portal_status("Starting setup network");
     xEventGroupClearBits(owner->wifi_event_group, WIFI_CONNECTED_BIT);
 
@@ -363,6 +366,7 @@ bool WifiManager::startPortal()
     if (err != ESP_OK) {
         owner->wifi_portal_active = false;
         xEventGroupClearBits(owner->wifi_event_group, WIFI_PORTAL_ACTIVE_BIT);
+        owner->update_oled_status("WIFI ERR");
         owner->set_portal_status("Setup failed: %s", esp_err_to_name(err));
         ESP_LOGW(TAG, "Starting WiFi setup AP failed: %s", esp_err_to_name(err));
         return false;
@@ -379,6 +383,7 @@ bool WifiManager::startPortal()
     owner->set_portal_status(dns_ok ? "Connect to %s then open %s" : "Open %s after connecting",
                              dns_ok ? owner->setup_ap_ssid : WIFI_SETUP_AP_IP,
                              WIFI_SETUP_AP_IP);
+    owner->update_oled_ip(WIFI_SETUP_AP_IP, true);
     ESP_LOGI(TAG, "WiFi setup portal active: SSID=%s", owner->setup_ap_ssid);
     return true;
 }
@@ -423,6 +428,7 @@ bool WifiManager::startStation()
     }
     if (owner->wifi_ssid[0] == '\0') {
         owner->set_data_status("SET WIFI");
+        owner->update_oled_status("SET WIFI");
         return false;
     }
     if (!owner->wifi_event_group || !owner->wifi_mutex) {
@@ -430,10 +436,12 @@ bool WifiManager::startStation()
     }
 
     owner->set_data_status("WIFI");
+    owner->update_oled_status("WIFI");
     xEventGroupClearBits(owner->wifi_event_group, WIFI_CONNECTED_BIT);
 
     if (xSemaphoreTake(owner->wifi_mutex, pdMS_TO_TICKS(15000)) != pdTRUE) {
         owner->set_data_status("WIFI BUSY");
+        owner->update_oled_status("WIFI BUSY");
         return false;
     }
 
@@ -472,6 +480,7 @@ bool WifiManager::startStation()
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "Starting station WiFi failed: %s", esp_err_to_name(err));
         owner->set_data_status("WIFI ERR");
+        owner->update_oled_status("WIFI ERR");
         return false;
     }
 
@@ -486,6 +495,7 @@ bool WifiManager::recoverAfterHttpFailure()
     }
 
     owner->set_data_status("NET RST");
+    owner->update_oled_status("NET RST");
     ESP_LOGW(TAG, "Resetting WiFi after HTTP failure");
 
     if (owner->wifi_mutex && xSemaphoreTake(owner->wifi_mutex, pdMS_TO_TICKS(15000)) != pdTRUE) {
@@ -554,6 +564,7 @@ void WifiManager::handleEvent(void *arg, esp_event_base_t event_base, int32_t ev
         if (!owner->wifi_portal_active && owner->wifi_ssid[0] != '\0') {
             ESP_LOGI(TAG, "Connecting to WiFi SSID '%s'", owner->wifi_ssid);
             owner->set_data_status("WIFI");
+            owner->update_oled_status("WIFI");
             esp_wifi_connect();
         }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
@@ -576,6 +587,7 @@ void WifiManager::handleEvent(void *arg, esp_event_base_t event_base, int32_t ev
                  reason, wifi_disconnect_reason_name(reason),
                  owner->wifi_retry_count, CONFIG_RADAR_WIFI_MAX_RETRY);
         owner->set_data_status("WIFI RETRY");
+        owner->update_oled_status("WIFI RETRY");
         esp_wifi_connect();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
@@ -583,6 +595,9 @@ void WifiManager::handleEvent(void *arg, esp_event_base_t event_base, int32_t ev
         owner->wifi_retry_count = 0;
         xEventGroupSetBits(owner->wifi_event_group, WIFI_CONNECTED_BIT);
         owner->set_data_status("ONLINE");
+        char ip_text[16] = {};
+        snprintf(ip_text, sizeof(ip_text), IPSTR, IP2STR(&event->ip_info.ip));
+        owner->update_oled_ip(ip_text, false);
         if (!owner->wifi_portal_active) {
             owner->settings_server.start();
         }

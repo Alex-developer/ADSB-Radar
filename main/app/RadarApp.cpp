@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "cJSON.h"
+#include "driver/gpio.h"
 #include "esp_crt_bundle.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
@@ -40,6 +41,7 @@
 #include "bsp/esp-bsp.h"
 #include "airport_data.h"
 #include "country_boundary_data.h"
+#include "iot_knob.h"
 #include "PhotoDecoder.hpp"
 #include "RadarApp.hpp"
 
@@ -60,6 +62,28 @@ enum {
     DATA_MENU_TOGGLE_COUNTRIES,
     DATA_MENU_TOGGLE_RUNWAYS,
     DATA_MENU_TOGGLE_GROUND_AIRCRAFT,
+};
+
+static constexpr gpio_num_t CONFIRM_BUTTON_GPIO = GPIO_NUM_30;
+static constexpr gpio_num_t BACK_BUTTON_GPIO = GPIO_NUM_46;
+static constexpr gpio_num_t TRIM_A_GPIO = GPIO_NUM_47;
+static constexpr gpio_num_t TRIM_B_GPIO = GPIO_NUM_52;
+static constexpr gpio_num_t TRIM_PUSH_GPIO = GPIO_NUM_48;
+static constexpr uint32_t ROTARY_POLL_MS = 2;
+static constexpr int64_t BUTTON_DEBOUNCE_US = 40000;
+
+enum {
+    HW_MENU_RANGE = 0,
+    HW_MENU_FILTER,
+    HW_MENU_HEADING,
+    HW_MENU_AIRPORTS,
+    HW_MENU_COUNTRIES,
+    HW_MENU_RUNWAYS,
+    HW_MENU_GROUND,
+    HW_MENU_SWEEP,
+    HW_MENU_WIFI_SETUP,
+    HW_MENU_REBOOT,
+    HW_MENU_ITEM_COUNT,
 };
 
 RadarApp *RadarApp::active_app = nullptr;
@@ -201,6 +225,35 @@ void RadarApp::update_aircraft_ui_entry(lv_timer_t *timer)
 {
     if (active_app) {
         active_app->update_aircraft_ui(timer);
+    }
+}
+
+/* Forward the rotary encoder polling timer to the active application instance. */
+void RadarApp::rotary_timer_entry(lv_timer_t *timer)
+{
+    (void)timer;
+    if (active_app) {
+        active_app->rotary_timer_cb();
+    }
+}
+
+/* Queue one anti-clockwise encoder event for the LVGL timer to consume. */
+void RadarApp::knob_left_entry(void *knob, void *user_data)
+{
+    (void)knob;
+    RadarApp *app = (RadarApp *)user_data;
+    if (app) {
+        app->encoder_pending_delta--;
+    }
+}
+
+/* Queue one clockwise encoder event for the LVGL timer to consume. */
+void RadarApp::knob_right_entry(void *knob, void *user_data)
+{
+    (void)knob;
+    RadarApp *app = (RadarApp *)user_data;
+    if (app) {
+        app->encoder_pending_delta++;
     }
 }
 
@@ -455,6 +508,51 @@ void RadarApp::set_range_to_default(void)
     range_index = 0;
 }
 
+/* Configure the physical push buttons and trim rotary encoder GPIOs as pull-up inputs. */
+void RadarApp::init_rotary_inputs(void)
+{
+    const uint64_t pin_mask = (1ULL << CONFIRM_BUTTON_GPIO) |
+                              (1ULL << BACK_BUTTON_GPIO) |
+                              (1ULL << TRIM_PUSH_GPIO);
+    gpio_config_t io_conf = {};
+    io_conf.pin_bit_mask = pin_mask;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    esp_err_t err = gpio_config(&io_conf);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Rotary/button GPIO setup failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    knob_config_t knob_cfg = {};
+    knob_cfg.default_direction = 0;
+    knob_cfg.gpio_encoder_a = TRIM_A_GPIO;
+    knob_cfg.gpio_encoder_b = TRIM_B_GPIO;
+    knob_cfg.enable_power_save = false;
+    rotary_knob_handle = iot_knob_create(&knob_cfg);
+    if (rotary_knob_handle) {
+        iot_knob_register_cb((knob_handle_t)rotary_knob_handle, KNOB_LEFT,
+                             RadarApp::knob_left_entry, this);
+        iot_knob_register_cb((knob_handle_t)rotary_knob_handle, KNOB_RIGHT,
+                             RadarApp::knob_right_entry, this);
+    } else {
+        ESP_LOGW(TAG, "Rotary knob driver setup failed");
+    }
+    encoder_pending_delta = 0;
+    encoder_event_accum = 0;
+    confirm_last_level = gpio_get_level(CONFIRM_BUTTON_GPIO);
+    back_last_level = gpio_get_level(BACK_BUTTON_GPIO);
+    push_last_level = gpio_get_level(TRIM_PUSH_GPIO);
+    confirm_last_change_us = back_last_change_us = push_last_change_us = esp_timer_get_time();
+    ESP_LOGI(TAG, "Rotary encoder configured: CLK=%d DATA=%d PUSH=%d initial=%d/%d/%d",
+             TRIM_A_GPIO, TRIM_B_GPIO, TRIM_PUSH_GPIO,
+             gpio_get_level(TRIM_A_GPIO), gpio_get_level(TRIM_B_GPIO), gpio_get_level(TRIM_PUSH_GPIO));
+    ESP_LOGI(TAG, "Hardware buttons configured: confirm=%d back=%d initial=%d/%d",
+             CONFIRM_BUTTON_GPIO, BACK_BUTTON_GPIO, confirm_last_level, back_last_level);
+}
+
 /* Calculate the smallest signed angular difference between two bearings. */
 int RadarApp::angle_delta(int a, int b)
 {
@@ -500,6 +598,7 @@ void RadarApp::set_data_status(const char *fmt, ...)
     } else {
         snprintf(latest_status, sizeof(latest_status), "%s", text);
     }
+    refresh_oled_dashboard();
 }
 
 /* Set the captive portal status text shared with the UI overlay. */
@@ -642,6 +741,33 @@ void RadarApp::refresh_range_label(void)
     update_range_ring_labels();
 }
 
+/* Move to another configured range and request fresh aircraft data. */
+void RadarApp::change_range_by_delta(int delta)
+{
+    size_t range_count = get_range_count();
+    if (range_count == 0 || delta == 0) {
+        return;
+    }
+
+    int next = (int)range_index + delta;
+    while (next < 0) {
+        next += (int)range_count;
+    }
+    next %= (int)range_count;
+    if ((size_t)next == range_index) {
+        return;
+    }
+
+    range_index = (size_t)next;
+    hide_range_menu();
+    refresh_range_label();
+    set_data_status("RNG %dMI", get_current_range_mi());
+    if (wifi_event_group) {
+        xEventGroupSetBits(wifi_event_group, FETCH_NOW_BIT);
+    }
+    ESP_LOGI(TAG, "Range changed to %dMI", get_current_range_mi());
+}
+
 /* Create one row in the range picker popup. */
 lv_obj_t *RadarApp::create_range_menu_row(lv_obj_t *parent, int y, size_t index, lv_obj_t **label_out)
 {
@@ -773,6 +899,52 @@ void RadarApp::format_wifi_ip_text(char *dst, size_t dst_size)
             snprintf(dst, dst_size, "IP " IPSTR, IP2STR(&info.ip));
         }
     }
+}
+
+/* Show a short network status on the optional SSD1306 status display. */
+void RadarApp::update_oled_status(const char *status)
+{
+    if (status && status[0]) {
+        snprintf(oled_wifi_line, sizeof(oled_wifi_line), "WIFI %s", status);
+    }
+    refresh_oled_dashboard();
+}
+
+/* Show the current station or setup AP IP on the optional SSD1306 status display. */
+void RadarApp::update_oled_ip(const char *ip, bool setup_ap)
+{
+    if (ip && ip[0]) {
+        snprintf(oled_wifi_line, sizeof(oled_wifi_line), "%s %s", setup_ap ? "SETUP" : "WIFI", ip);
+    } else {
+        snprintf(oled_wifi_line, sizeof(oled_wifi_line), "%s", setup_ap ? "SETUP --" : "WIFI --");
+    }
+    refresh_oled_dashboard();
+}
+
+/* Keep the optional OLED focused on network state and current radar health. */
+void RadarApp::refresh_oled_dashboard(void)
+{
+    char status[sizeof(latest_status)] = {};
+    if (aircraft_mutex && xSemaphoreTake(aircraft_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+        snprintf(status, sizeof(status), "%s", latest_status);
+        xSemaphoreGive(aircraft_mutex);
+    } else {
+        snprintf(status, sizeof(status), "%s", latest_status);
+    }
+
+    char line1[24];
+    char line2[24];
+    char line3[24];
+    char line4[24];
+    snprintf(line1, sizeof(line1), "STATUS %s", status[0] ? status : "WAIT");
+    snprintf(line2, sizeof(line2), "RANGE %dMI", get_current_range_mi());
+    snprintf(line3, sizeof(line3), "AIRCRAFT %u", (unsigned)ui_aircraft_count);
+    gps_snapshot_t gps_snapshot = {};
+    gps.getSnapshot(&gps_snapshot);
+    snprintf(line4, sizeof(line4), "GPS %s",
+             (gps_snapshot.has_fix && !gps_snapshot.fix_stale) ? "LOCK" :
+             (gps_snapshot.device_connected ? "WAIT" : "NO GPS"));
+    oled_status.showDashboard(oled_wifi_line, line1, line2, line3, line4);
 }
 
 /* Refresh WiFi menu rows from the current connection or portal state. */
@@ -921,6 +1093,235 @@ void RadarApp::toggle_data_menu(void)
     }
 }
 
+/* Refresh the hardware menu values and highlighted row. */
+void RadarApp::refresh_hardware_menu(void)
+{
+    if (!hardware_menu) {
+        return;
+    }
+
+    static const char *labels[HW_MENU_ITEM_COUNT] = {
+        "Range", "Aircraft", "Heading", "Airports", "Countries",
+        "Runways", "Ground A/C", "Sweep", "WiFi Setup", "Reboot"
+    };
+    char values[HW_MENU_ITEM_COUNT][32] = {};
+    snprintf(values[HW_MENU_RANGE], sizeof(values[HW_MENU_RANGE]), "%d MI", get_current_range_mi());
+    snprintf(values[HW_MENU_FILTER], sizeof(values[HW_MENU_FILTER]), "%s",
+             aircraft_filter == AIRCRAFT_FILTER_MILITARY ? "Military" :
+             (aircraft_filter == AIRCRAFT_FILTER_INTERESTING ? "Interesting" : "All"));
+    snprintf(values[HW_MENU_HEADING], sizeof(values[HW_MENU_HEADING]), "%s",
+             !settings.show_aircraft_heading ||
+             settings.aircraft_heading_style == RADAR_HEADING_STYLE_NONE ? "Off" :
+             (settings.aircraft_heading_style == RADAR_HEADING_STYLE_LINE ? "Line" : "Arrow"));
+    snprintf(values[HW_MENU_AIRPORTS], sizeof(values[HW_MENU_AIRPORTS]), "%s", settings.show_airports ? "On" : "Off");
+    snprintf(values[HW_MENU_COUNTRIES], sizeof(values[HW_MENU_COUNTRIES]), "%s", settings.show_countries ? "On" : "Off");
+    snprintf(values[HW_MENU_RUNWAYS], sizeof(values[HW_MENU_RUNWAYS]), "%s",
+             settings.center_source == RADAR_CENTER_SOURCE_AIRPORT ?
+             (settings.show_airport_runways ? "On" : "Off") : "N/A");
+    snprintf(values[HW_MENU_GROUND], sizeof(values[HW_MENU_GROUND]), "%s",
+             settings.show_ground_aircraft ? "On" : "Off");
+    snprintf(values[HW_MENU_SWEEP], sizeof(values[HW_MENU_SWEEP]), "%s", settings.show_sweep ? "On" : "Off");
+    snprintf(values[HW_MENU_WIFI_SETUP], sizeof(values[HW_MENU_WIFI_SETUP]), "Start");
+    snprintf(values[HW_MENU_REBOOT], sizeof(values[HW_MENU_REBOOT]), "Restart");
+
+    for (int i = 0; i < HW_MENU_ITEM_COUNT; ++i) {
+        if (hardware_menu_labels[i]) {
+            lv_label_set_text(hardware_menu_labels[i], labels[i]);
+        }
+        if (hardware_menu_values[i]) {
+            lv_label_set_text(hardware_menu_values[i], values[i]);
+        }
+        if (hardware_menu_rows[i]) {
+            bool selected = i == hardware_menu_selected;
+            lv_obj_set_style_bg_opa(hardware_menu_rows[i], selected ? LV_OPA_70 : LV_OPA_20, 0);
+            lv_obj_set_style_border_width(hardware_menu_rows[i], selected ? 2 : 1, 0);
+        }
+    }
+
+    if (hardware_menu_help) {
+        lv_label_set_text(hardware_menu_help,
+                          settings.hardware_show_hints ?
+                          "Rotate: move  Confirm/Push: select  Back: close" : "");
+    }
+}
+
+/* Show the hardware menu overlay and close the touch popups below it. */
+void RadarApp::show_hardware_menu(void)
+{
+    if (!hardware_menu || !settings.hardware_controls_enabled) {
+        return;
+    }
+    hide_range_menu();
+    hide_data_menu();
+    hide_wifi_menu();
+    hardware_menu_last_use_us = esp_timer_get_time();
+    refresh_hardware_menu();
+    lv_obj_clear_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(hardware_menu);
+}
+
+/* Hide the hardware menu overlay. */
+void RadarApp::hide_hardware_menu(void)
+{
+    if (hardware_menu) {
+        lv_obj_add_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+/* Move the hardware menu selection with wraparound. */
+void RadarApp::move_hardware_menu_selection(int delta)
+{
+    if (!hardware_menu || lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
+        return;
+    }
+    hardware_menu_selected += delta;
+    while (hardware_menu_selected < 0) {
+        hardware_menu_selected += HW_MENU_ITEM_COUNT;
+    }
+    hardware_menu_selected %= HW_MENU_ITEM_COUNT;
+    hardware_menu_last_use_us = esp_timer_get_time();
+    refresh_hardware_menu();
+}
+
+/* Execute the currently selected hardware menu row. */
+void RadarApp::select_hardware_menu_item(void)
+{
+    if (!hardware_menu || lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
+        show_hardware_menu();
+        return;
+    }
+
+    bool changed = false;
+    hardware_menu_last_use_us = esp_timer_get_time();
+    switch (hardware_menu_selected) {
+    case HW_MENU_RANGE:
+        change_range_by_delta(1);
+        break;
+    case HW_MENU_FILTER:
+        aircraft_filter = aircraft_filter == AIRCRAFT_FILTER_ALL ? AIRCRAFT_FILTER_MILITARY :
+                          (aircraft_filter == AIRCRAFT_FILTER_MILITARY ? AIRCRAFT_FILTER_INTERESTING :
+                           AIRCRAFT_FILTER_ALL);
+        changed = true;
+        break;
+    case HW_MENU_HEADING:
+        if (!settings.show_aircraft_heading ||
+            settings.aircraft_heading_style == RADAR_HEADING_STYLE_NONE) {
+            settings.show_aircraft_heading = true;
+            settings.aircraft_heading_style = RADAR_HEADING_STYLE_ARROW;
+        } else if (settings.aircraft_heading_style == RADAR_HEADING_STYLE_ARROW) {
+            settings.aircraft_heading_style = RADAR_HEADING_STYLE_LINE;
+        } else {
+            settings.show_aircraft_heading = false;
+            settings.aircraft_heading_style = RADAR_HEADING_STYLE_NONE;
+        }
+        settings.visible.aircraft_heading = settings.show_aircraft_heading;
+        changed = true;
+        break;
+    case HW_MENU_AIRPORTS:
+        settings.show_airports = !settings.show_airports;
+        settings.visible.airport = settings.show_airports;
+        changed = true;
+        break;
+    case HW_MENU_COUNTRIES:
+        settings.show_countries = !settings.show_countries;
+        settings.visible.country_boundary = settings.show_countries;
+        changed = true;
+        break;
+    case HW_MENU_RUNWAYS:
+        if (settings.center_source == RADAR_CENTER_SOURCE_AIRPORT) {
+            settings.show_airport_runways = !settings.show_airport_runways;
+            settings.visible.runway = settings.show_airport_runways;
+            if (!settings.show_airport_runways) {
+                clear_active_runway_cache();
+            } else if (wifi_event_group) {
+                xEventGroupSetBits(wifi_event_group, FETCH_NOW_BIT);
+            }
+            changed = true;
+        }
+        break;
+    case HW_MENU_GROUND:
+        settings.show_ground_aircraft = !settings.show_ground_aircraft;
+        changed = true;
+        break;
+    case HW_MENU_SWEEP:
+        settings.show_sweep = !settings.show_sweep;
+        settings.visible.sweep = settings.show_sweep;
+        changed = true;
+        break;
+    case HW_MENU_WIFI_SETUP:
+        hide_hardware_menu();
+        request_wifi_portal();
+        break;
+    case HW_MENU_REBOOT:
+        set_data_status("REBOOT");
+        esp_restart();
+        break;
+    default:
+        break;
+    }
+
+    if (changed) {
+        settings_generation++;
+        invalidate_aircraft_display();
+        refresh_data_menu();
+    }
+    refresh_hardware_menu();
+}
+
+/* Apply one configured action from a physical button. */
+void RadarApp::apply_hardware_button_action(int action)
+{
+    if (!settings.hardware_controls_enabled) {
+        return;
+    }
+
+    switch (action) {
+    case RADAR_HW_BUTTON_NONE:
+        break;
+    case RADAR_HW_BUTTON_BACK_CLOSE:
+        if (hardware_menu && !lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
+            hide_hardware_menu();
+        } else {
+            hide_range_menu();
+            hide_data_menu();
+            hide_wifi_menu();
+        }
+        break;
+    case RADAR_HW_BUTTON_RANGE_UP:
+        change_range_by_delta(1);
+        break;
+    case RADAR_HW_BUTTON_RANGE_DOWN:
+        change_range_by_delta(-1);
+        break;
+    case RADAR_HW_BUTTON_DATA_MENU:
+        toggle_data_menu();
+        break;
+    case RADAR_HW_BUTTON_WIFI_MENU:
+        toggle_wifi_menu();
+        break;
+    case RADAR_HW_BUTTON_MENU_SELECT:
+    default:
+        select_hardware_menu_item();
+        break;
+    }
+}
+
+/* Return true once for each debounced active-low button press. */
+bool RadarApp::consume_button_press(int gpio, int *last_level, int64_t *last_change_us)
+{
+    int level = gpio_get_level((gpio_num_t)gpio);
+    int64_t now_us = esp_timer_get_time();
+    if (level == *last_level) {
+        return false;
+    }
+    if (now_us - *last_change_us < BUTTON_DEBOUNCE_US) {
+        return false;
+    }
+    *last_change_us = now_us;
+    *last_level = level;
+    return level == 0;
+}
+
 /* Handle left, middle, and right range-button hit zones. */
 void RadarApp::range_button_event(lv_event_t *event)
 {
@@ -942,20 +1343,61 @@ void RadarApp::range_button_event(lv_event_t *event)
         return;
     }
 
-    hide_range_menu();
-    bool decrease = direction < 0;
+    change_range_by_delta(direction < 0 ? -1 : 1);
+}
 
-    if (decrease) {
-        range_index = range_index == 0 ? range_count - 1 : range_index - 1;
+/* Decode the mechanical encoder from the CLK falling edge and DATA level. */
+void RadarApp::rotary_timer_cb(void)
+{
+    if (!settings.hardware_controls_enabled) {
+        return;
+    }
+
+    if (consume_button_press(CONFIRM_BUTTON_GPIO, &confirm_last_level, &confirm_last_change_us)) {
+        apply_hardware_button_action(settings.hardware_confirm_action);
+    }
+    if (consume_button_press(BACK_BUTTON_GPIO, &back_last_level, &back_last_change_us)) {
+        apply_hardware_button_action(settings.hardware_back_action);
+    }
+    if (consume_button_press(TRIM_PUSH_GPIO, &push_last_level, &push_last_change_us)) {
+        apply_hardware_button_action(settings.hardware_push_action);
+    }
+
+    if (hardware_menu && !lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN) &&
+        settings.hardware_menu_timeout_sec > 0 &&
+        esp_timer_get_time() - hardware_menu_last_use_us >
+            (int64_t)settings.hardware_menu_timeout_sec * 1000000LL) {
+        hide_hardware_menu();
+    }
+
+    int raw_delta = encoder_pending_delta;
+    if (raw_delta == 0) {
+        return;
+    }
+    encoder_pending_delta = 0;
+    encoder_event_accum += raw_delta;
+
+    int delta = 0;
+    if (encoder_event_accum >= 2) {
+        delta = 1;
+        encoder_event_accum -= 2;
+    } else if (encoder_event_accum <= -2) {
+        delta = -1;
+        encoder_event_accum += 2;
+    }
+    if (delta == 0) {
+        return;
+    }
+
+    ESP_LOGI(TAG, "Rotary step raw=%d accum=%d delta=%d", raw_delta, encoder_event_accum, delta);
+    if (hardware_menu && !lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
+        move_hardware_menu_selection(delta);
+    } else if (settings.hardware_rotary_action == RADAR_HW_ROTARY_MENU) {
+        show_hardware_menu();
+        move_hardware_menu_selection(delta);
     } else {
-        range_index = (range_index + 1) % range_count;
+        change_range_by_delta(delta);
     }
-    refresh_range_label();
-    set_data_status("RNG %dMI", get_current_range_mi());
-    if (wifi_event_group) {
-        xEventGroupSetBits(wifi_event_group, FETCH_NOW_BIT);
-    }
-    ESP_LOGI(TAG, "Range changed to %dMI", get_current_range_mi());
 }
 
 /* Select one configured range from the range popup and request an immediate fetch. */
@@ -2830,12 +3272,12 @@ void RadarApp::update_aircraft_ui(lv_timer_t *timer)
         snprintf(status, sizeof(status), "%s", latest_status);
         xSemaphoreGive(aircraft_mutex);
     }
-
     char data_text[40];
     snprintf(data_text, sizeof(data_text), "DATA %s", status);
     set_curved_button_text(&status_button, data_text);
     ui_aircraft_count = count;
     ui_aircraft_range_mi = range_mi;
+    refresh_oled_dashboard();
     bool settings_changed = settings_generation != displayed_settings_generation;
     bool range_changed = range_mi != displayed_range_mi;
     if (settings_changed) {
@@ -3683,6 +4125,65 @@ void RadarApp::create_data_menu(lv_obj_t *screen)
     refresh_data_menu();
 }
 
+/* Create the physical-control menu overlay used by buttons and rotary encoder. */
+void RadarApp::create_hardware_menu(lv_obj_t *screen)
+{
+    hardware_menu = lv_obj_create(screen);
+    lv_obj_set_size(hardware_menu, 440, 560);
+    lv_obj_set_pos(hardware_menu, (SCREEN_W - 440) / 2, 72);
+    lv_obj_set_style_bg_color(hardware_menu, lv_color_hex(settings.colors.popup_bg), 0);
+    lv_obj_set_style_bg_opa(hardware_menu, LV_OPA_90, 0);
+    lv_obj_set_style_border_color(hardware_menu, lv_color_hex(settings.colors.popup_border), 0);
+    lv_obj_set_style_border_width(hardware_menu, 2, 0);
+    lv_obj_set_style_radius(hardware_menu, 10, 0);
+    lv_obj_set_style_pad_all(hardware_menu, 16, 0);
+    lv_obj_clear_flag(hardware_menu, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN);
+
+    hardware_menu_title = make_label(hardware_menu, "DISPLAY MENU",
+                                     configured_label_font(settings.label_styles.button),
+                                     settings.colors.button_text);
+    lv_obj_set_pos(hardware_menu_title, 0, 8);
+    lv_obj_set_width(hardware_menu_title, 408);
+    lv_obj_set_style_text_align(hardware_menu_title, LV_TEXT_ALIGN_CENTER, 0);
+
+    for (int i = 0; i < HW_MENU_ITEM_COUNT; ++i) {
+        lv_obj_t *row = lv_obj_create(hardware_menu);
+        lv_obj_set_size(row, 392, 38);
+        lv_obj_set_pos(row, 8, 50 + (i * 42));
+        lv_obj_set_style_bg_color(row, lv_color_hex(settings.colors.button_pressed), 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_20, 0);
+        lv_obj_set_style_border_color(row, lv_color_hex(settings.colors.popup_border), 0);
+        lv_obj_set_style_border_width(row, 1, 0);
+        lv_obj_set_style_radius(row, 6, 0);
+        lv_obj_set_style_pad_all(row, 0, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+
+        hardware_menu_labels[i] = make_label(row, "",
+                                             configured_label_font(settings.label_styles.button, -2),
+                                             settings.colors.text_primary);
+        lv_obj_set_pos(hardware_menu_labels[i], 12, 8);
+        lv_obj_set_width(hardware_menu_labels[i], 210);
+
+        hardware_menu_values[i] = make_label(row, "",
+                                             configured_label_font(settings.label_styles.button, -2),
+                                             settings.colors.button_status);
+        lv_obj_set_pos(hardware_menu_values[i], 226, 8);
+        lv_obj_set_width(hardware_menu_values[i], 150);
+        lv_obj_set_style_text_align(hardware_menu_values[i], LV_TEXT_ALIGN_RIGHT, 0);
+
+        hardware_menu_rows[i] = row;
+    }
+
+    hardware_menu_help = make_label(hardware_menu, "",
+                                    configured_label_font(settings.label_styles.gps, -2),
+                                    settings.colors.text_secondary);
+    lv_obj_set_pos(hardware_menu_help, 8, 502);
+    lv_obj_set_width(hardware_menu_help, 392);
+    lv_obj_set_style_text_align(hardware_menu_help, LV_TEXT_ALIGN_CENTER, 0);
+    refresh_hardware_menu();
+}
+
 /* Build the full radar LVGL scene, controls, popups, overlays, and timers. */
 void RadarApp::create_radar_ui(void)
 {
@@ -3829,12 +4330,14 @@ void RadarApp::create_radar_ui(void)
     create_range_menu(screen);
     create_wifi_menu(screen);
     create_data_menu(screen);
+    create_hardware_menu(screen);
     create_portal_overlay(screen);
 
     refresh_range_label();
     bsp_display_brightness_set(DEFAULT_BRIGHTNESS);
 
     lv_timer_create(RadarApp::sweep_timer_entry, SWEEP_TIMER_MS, NULL);
+    lv_timer_create(RadarApp::rotary_timer_entry, ROTARY_POLL_MS, NULL);
     lv_timer_create(RadarApp::update_aircraft_ui_entry, 1000, NULL);
     sweep_timer_cb(NULL);
 }
@@ -3879,6 +4382,8 @@ void RadarApp::run()
 
     bsp_display_start_with_config(&cfg);
     bsp_display_backlight_on();
+    oled_status.init();
+    init_rotary_inputs();
 
     bsp_display_lock((uint32_t)-1);
     create_radar_ui();

@@ -163,6 +163,56 @@ bool valid_aircraft_url(const char *url, size_t url_size, bool required)
     return true;
 }
 
+/* Parse a named hardware button action from the settings JSON. */
+int parse_hardware_button_action(cJSON *object, const char *name, int fallback)
+{
+    cJSON *item = cJSON_GetObjectItemCaseSensitive(object, name);
+    if (!cJSON_IsString(item) || !item->valuestring) {
+        return fallback;
+    }
+    if (strcmp(item->valuestring, "none") == 0) {
+        return RADAR_HW_BUTTON_NONE;
+    }
+    if (strcmp(item->valuestring, "back") == 0) {
+        return RADAR_HW_BUTTON_BACK_CLOSE;
+    }
+    if (strcmp(item->valuestring, "rangeUp") == 0) {
+        return RADAR_HW_BUTTON_RANGE_UP;
+    }
+    if (strcmp(item->valuestring, "rangeDown") == 0) {
+        return RADAR_HW_BUTTON_RANGE_DOWN;
+    }
+    if (strcmp(item->valuestring, "dataMenu") == 0) {
+        return RADAR_HW_BUTTON_DATA_MENU;
+    }
+    if (strcmp(item->valuestring, "wifiMenu") == 0) {
+        return RADAR_HW_BUTTON_WIFI_MENU;
+    }
+    return RADAR_HW_BUTTON_MENU_SELECT;
+}
+
+/* Return the JSON string for a hardware button action. */
+const char *hardware_button_action_name(int action)
+{
+    switch (action) {
+    case RADAR_HW_BUTTON_NONE:
+        return "none";
+    case RADAR_HW_BUTTON_BACK_CLOSE:
+        return "back";
+    case RADAR_HW_BUTTON_RANGE_UP:
+        return "rangeUp";
+    case RADAR_HW_BUTTON_RANGE_DOWN:
+        return "rangeDown";
+    case RADAR_HW_BUTTON_DATA_MENU:
+        return "dataMenu";
+    case RADAR_HW_BUTTON_WIFI_MENU:
+        return "wifiMenu";
+    case RADAR_HW_BUTTON_MENU_SELECT:
+    default:
+        return "menuSelect";
+    }
+}
+
 #define RADAR_COLOR_FIELDS(X) \
     X(screen_bg, 0x010503) \
     X(radar_bg, 0x03160a) \
@@ -599,6 +649,13 @@ void RadarSettings::setDefaults()
     show_countries = true;
     show_airport_runways = false;
     aircraft_data_source = AIRCRAFT_DATA_SOURCE_AIRPLANES_LIVE;
+    hardware_controls_enabled = true;
+    hardware_rotary_action = RADAR_HW_ROTARY_RANGE;
+    hardware_confirm_action = RADAR_HW_BUTTON_MENU_SELECT;
+    hardware_back_action = RADAR_HW_BUTTON_BACK_CLOSE;
+    hardware_push_action = RADAR_HW_BUTTON_MENU_SELECT;
+    hardware_menu_timeout_sec = 15;
+    hardware_show_hints = true;
     snprintf(aircraft_local_url, sizeof(aircraft_local_url), "%s", "");
     set_default_colors(&colors);
     set_default_altitude_colors(&altitude_colors);
@@ -955,6 +1012,27 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
             candidate->aircraft_heading_style = RADAR_HEADING_STYLE_NONE;
             candidate->show_climb_descent = false;
         }
+        cJSON *hardware = cJSON_GetObjectItemCaseSensitive(interface, "hardware");
+        if (cJSON_IsObject(hardware)) {
+            candidate->hardware_controls_enabled =
+                parse_bool_item(hardware, "enabled", candidate->hardware_controls_enabled);
+            cJSON *rotary = cJSON_GetObjectItemCaseSensitive(hardware, "rotaryAction");
+            if (cJSON_IsString(rotary) && rotary->valuestring) {
+                candidate->hardware_rotary_action =
+                    strcmp(rotary->valuestring, "menu") == 0 ?
+                    RADAR_HW_ROTARY_MENU : RADAR_HW_ROTARY_RANGE;
+            }
+            candidate->hardware_confirm_action =
+                parse_hardware_button_action(hardware, "confirmAction", candidate->hardware_confirm_action);
+            candidate->hardware_back_action =
+                parse_hardware_button_action(hardware, "backAction", candidate->hardware_back_action);
+            candidate->hardware_push_action =
+                parse_hardware_button_action(hardware, "pushAction", candidate->hardware_push_action);
+            candidate->hardware_menu_timeout_sec =
+                clamp_int(parse_int_item(hardware, "menuTimeoutSec", candidate->hardware_menu_timeout_sec), 3, 120);
+            candidate->hardware_show_hints =
+                parse_bool_item(hardware, "showHints", candidate->hardware_show_hints);
+        }
     }
 
     if (candidate->center_source != RADAR_CENTER_SOURCE_AIRPORT) {
@@ -1120,6 +1198,15 @@ char *RadarSettings::toJson(const char *wifi_ssid) const
                             !show_aircraft_heading ||
                             aircraft_heading_style == RADAR_HEADING_STYLE_NONE ? "none" :
                             (aircraft_heading_style == RADAR_HEADING_STYLE_LINE ? "line" : "arrow"));
+    cJSON *hardware = cJSON_AddObjectToObject(interface, "hardware");
+    cJSON_AddBoolToObject(hardware, "enabled", hardware_controls_enabled);
+    cJSON_AddStringToObject(hardware, "rotaryAction",
+                            hardware_rotary_action == RADAR_HW_ROTARY_MENU ? "menu" : "range");
+    cJSON_AddStringToObject(hardware, "confirmAction", hardware_button_action_name(hardware_confirm_action));
+    cJSON_AddStringToObject(hardware, "backAction", hardware_button_action_name(hardware_back_action));
+    cJSON_AddStringToObject(hardware, "pushAction", hardware_button_action_name(hardware_push_action));
+    cJSON_AddNumberToObject(hardware, "menuTimeoutSec", hardware_menu_timeout_sec);
+    cJSON_AddBoolToObject(hardware, "showHints", hardware_show_hints);
 
     add_color_settings_json(root, &colors);
     add_altitude_color_settings_json(root, &altitude_colors);

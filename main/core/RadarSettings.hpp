@@ -50,6 +50,15 @@
 #define AIRCRAFT_DATA_SOURCE_ADSB_FI 3
 #define AIRCRAFT_ROUTE_STYLE_SHORT 0
 #define AIRCRAFT_ROUTE_STYLE_LONG 1
+#define RADAR_HW_ROTARY_RANGE 0
+#define RADAR_HW_ROTARY_MENU 1
+#define RADAR_HW_BUTTON_NONE 0
+#define RADAR_HW_BUTTON_MENU_SELECT 1
+#define RADAR_HW_BUTTON_BACK_CLOSE 2
+#define RADAR_HW_BUTTON_RANGE_UP 3
+#define RADAR_HW_BUTTON_RANGE_DOWN 4
+#define RADAR_HW_BUTTON_DATA_MENU 5
+#define RADAR_HW_BUTTON_WIFI_MENU 6
 
 /* One user-selectable radar range, including fetch cadence and label budget. */
 typedef struct {
@@ -241,6 +250,13 @@ typedef struct {
     int ground_speed_kt;
     altitude_color_setting_t altitude_colors;
     label_style_setting_t label_styles;
+    bool hardware_controls_enabled;
+    int hardware_rotary_action;
+    int hardware_confirm_action;
+    int hardware_back_action;
+    int hardware_push_action;
+    int hardware_menu_timeout_sec;
+    bool hardware_show_hints;
 } radar_settings_t;
 
 /*

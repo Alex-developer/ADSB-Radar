@@ -33,6 +33,7 @@
 #include "SettingsServer.hpp"
 #include "AircraftPopupController.hpp"
 #include "CurvedButtonController.hpp"
+#include "Ssd1306StatusDisplay.hpp"
 #include "WifiManager.hpp"
 
 /*
@@ -99,6 +100,12 @@ private:
     lv_obj_t *data_menu = nullptr;
     lv_obj_t *data_menu_rows[DATA_MENU_ROW_COUNT] = {};
     lv_obj_t *data_menu_labels[DATA_MENU_ROW_COUNT] = {};
+    lv_obj_t *hardware_menu = nullptr;
+    lv_obj_t *hardware_menu_title = nullptr;
+    lv_obj_t *hardware_menu_rows[10] = {};
+    lv_obj_t *hardware_menu_labels[10] = {};
+    lv_obj_t *hardware_menu_values[10] = {};
+    lv_obj_t *hardware_menu_help = nullptr;
 
     /* Captive portal overlay shown on the device while WiFi setup is active. */
     lv_obj_t *portal_overlay = nullptr;
@@ -138,6 +145,7 @@ private:
     int ui_aircraft_range_mi = 50;
     char latest_status[32] = "STARTING";
     char portal_status[80] = "Starting setup network";
+    char oled_wifi_line[32] = "WIFI --";
 
     /* WiFi credentials and AP identity. Password is kept only in RAM after loading. */
     char wifi_ssid[33] = {};
@@ -151,6 +159,17 @@ private:
     /* Runtime UI state. */
     int sweep_angle_deg = 0;
     size_t range_index = 2;
+    void *rotary_knob_handle = nullptr;
+    volatile int encoder_pending_delta = 0;
+    int encoder_event_accum = 0;
+    int confirm_last_level = 1;
+    int back_last_level = 1;
+    int push_last_level = 1;
+    int64_t confirm_last_change_us = 0;
+    int64_t back_last_change_us = 0;
+    int64_t push_last_change_us = 0;
+    int hardware_menu_selected = 0;
+    int64_t hardware_menu_last_use_us = 0;
     aircraft_filter_t aircraft_filter = AIRCRAFT_FILTER_ALL;
     uint32_t aircraft_photo_request_id = 0;
     uint32_t aircraft_route_request_id = 0;
@@ -191,6 +210,7 @@ private:
     CurvedButtonController curved_button_controller = {};
     CaptivePortal captive_portal = {};
     WifiManager wifi_manager = {};
+    Ssd1306StatusDisplay oled_status = {};
 
     /* Forward the range button LVGL event to the active app instance. */
     static void range_button_event_entry(lv_event_t *event);
@@ -224,6 +244,13 @@ private:
 
     /* Forward the slower aircraft/UI refresh timer callback. */
     static void update_aircraft_ui_entry(lv_timer_t *timer);
+
+    /* Poll the physical rotary encoder from the LVGL timer thread. */
+    static void rotary_timer_entry(lv_timer_t *timer);
+
+    /* Queue left/right events from the Espressif knob driver. */
+    static void knob_left_entry(void *knob, void *user_data);
+    static void knob_right_entry(void *knob, void *user_data);
 
     /* FreeRTOS entry point for the aircraft photo worker task. */
     static void aircraft_photo_fetch_task_entry(void *arg);
@@ -307,6 +334,9 @@ private:
     /* Select the configured startup/default range. */
     void set_range_to_default();
 
+    /* Configure physical buttons and the trim rotary encoder GPIOs. */
+    void init_rotary_inputs();
+
     /* Return the smallest signed difference between two headings. */
     static int angle_delta(int a, int b);
 
@@ -369,6 +399,9 @@ private:
     /* Refresh the range button caption. */
     void refresh_range_label();
 
+    /* Change the selected range by one or more preset slots. */
+    void change_range_by_delta(int delta);
+
     /* Create one selectable row in the range popup menu. */
     lv_obj_t *create_range_menu_row(lv_obj_t *parent, int y, size_t index, lv_obj_t **label_out);
 
@@ -389,6 +422,15 @@ private:
 
     /* Format the current station IP for the WiFi menu. */
     void format_wifi_ip_text(char *dst, size_t dst_size);
+
+    /* Mirror a short network status message onto the optional SSD1306 display. */
+    void update_oled_status(const char *status);
+
+    /* Mirror the active station or setup AP IP address onto the optional SSD1306 display. */
+    void update_oled_ip(const char *ip, bool setup_ap);
+
+    /* Redraw the optional SSD1306 with WiFi and radar status lines. */
+    void refresh_oled_dashboard();
 
     /* Create one row in the WiFi popup menu. */
     lv_obj_t *create_wifi_menu_row(lv_obj_t *parent, int y, const char *text,
@@ -428,8 +470,31 @@ private:
     /* Toggle the DATA popup menu. */
     void toggle_data_menu();
 
+    /* Create the hardware-control menu overlay. */
+    void create_hardware_menu(lv_obj_t *screen);
+
+    /* Refresh the hardware menu row text and selection state. */
+    void refresh_hardware_menu();
+
+    /* Show, hide, or move within the hardware menu. */
+    void show_hardware_menu();
+    void hide_hardware_menu();
+    void move_hardware_menu_selection(int delta);
+
+    /* Execute the selected hardware menu row. */
+    void select_hardware_menu_item();
+
+    /* Run one configured hardware button action. */
+    void apply_hardware_button_action(int action);
+
+    /* Check one active-low button for a debounced press. */
+    bool consume_button_press(int gpio, int *last_level, int64_t *last_change_us);
+
     /* Handle left, middle, and right range button taps. */
     void range_button_event(lv_event_t *event);
+
+    /* Poll the physical rotary encoder and apply completed detents. */
+    void rotary_timer_cb();
 
     /* Handle a range popup row tap. */
     void range_menu_event(lv_event_t *event);

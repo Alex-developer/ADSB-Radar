@@ -951,6 +951,21 @@ function renderStyleGroups(data){
             </div>
           </div>
         </div>
+        <div class="col-12">
+          <div class="display-card">
+            <div class="display-card-head"><div class="editor-card-icon"><i class="bi bi-sliders"></i></div><div><h3>Physical controls</h3><p>Choose how the confirm, back, rotary and push controls operate on the radar.</p></div></div>
+            <div class="row g-3">
+              <div class="col-md-4 form-check form-switch"><input id="hardwareControlsEnabled" class="form-check-input" type="checkbox"><label class="form-check-label" for="hardwareControlsEnabled">Enable hardware controls</label></div>
+              <div class="col-md-4 form-check form-switch"><input id="hardwareShowHints" class="form-check-input" type="checkbox"><label class="form-check-label" for="hardwareShowHints">Show menu hints</label></div>
+              <div class="col-md-4"><label class="form-label" for="hardwareMenuTimeoutSec">Menu timeout</label><div class="input-group"><input id="hardwareMenuTimeoutSec" class="form-control" type="number" min="3" max="120"><span class="input-group-text">s</span></div></div>
+              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareRotaryAction">Rotary when menu closed</label><select id="hardwareRotaryAction" class="form-select"><option value="range">Change range</option><option value="menu">Open menu</option></select></div>
+              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareConfirmAction">Confirm button</label><select id="hardwareConfirmAction" class="form-select hardware-action-select"></select></div>
+              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareBackAction">Back button</label><select id="hardwareBackAction" class="form-select hardware-action-select"></select></div>
+              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwarePushAction">Encoder push</label><select id="hardwarePushAction" class="form-select hardware-action-select"></select></div>
+              <div class="col-12"><div class="form-text">The on-device menu includes range, aircraft filter, heading, airports, countries, runways, ground aircraft, sweep, WiFi setup and reboot.</div></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>`);
@@ -967,6 +982,26 @@ function renderStyleGroups(data){
   if(headingMode==='heading'||headingMode==='vertical') headingMode='arrow';
   $('#headingMode',content).val(headingMode);
   $('#showClimbDescent',content).prop('checked',!!data.interface.showClimbDescent);
+  const hardwareActions=[
+    ['menuSelect','Open menu / select'],
+    ['back','Back / close'],
+    ['rangeUp','Range up'],
+    ['rangeDown','Range down'],
+    ['dataMenu','Open DATA menu'],
+    ['wifiMenu','Open WiFi menu'],
+    ['none','Do nothing']
+  ];
+  $('.hardware-action-select',content).each(function(){
+    $(this).html(hardwareActions.map(a=>`<option value="${a[0]}">${a[1]}</option>`).join(''));
+  });
+  let hw=(data.interface&&data.interface.hardware)||{};
+  $('#hardwareControlsEnabled',content).prop('checked',hw.enabled!==false);
+  $('#hardwareShowHints',content).prop('checked',hw.showHints!==false);
+  $('#hardwareMenuTimeoutSec',content).val(hw.menuTimeoutSec ?? 15);
+  $('#hardwareRotaryAction',content).val(hw.rotaryAction||'range');
+  $('#hardwareConfirmAction',content).val(hw.confirmAction||'menuSelect');
+  $('#hardwareBackAction',content).val(hw.backAction||'back');
+  $('#hardwarePushAction',content).val(hw.pushAction||'menuSelect');
   $('#sweepStepDeg',content).val(data.interface.sweepStepDeg ?? 5);
   $('#sweepDrawIntervalMs',content).val(data.interface.sweepDrawIntervalMs ?? 50);
   $('#showSweepTrail',content).prop('checked',data.interface.showSweepTrail!==false);
@@ -1029,7 +1064,7 @@ function renderStyleGroups(data){
 	// Collect configured radar label fonts and sizes.
 	function collectLabelStyles(){ let styles={}; $('.label-font-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].font=$(this).val(); }); $('.label-size-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].size=clampRange($(this).val(),10,22); }); return styles; }
 	// Build the complete settings payload sent to the ESP32.
-	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked')}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
+	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked'), hardware:{enabled:$('#hardwareControlsEnabled').is(':checked'), showHints:$('#hardwareShowHints').is(':checked'), menuTimeoutSec:+$('#hardwareMenuTimeoutSec').val()||15, rotaryAction:$('#hardwareRotaryAction').val(), confirmAction:$('#hardwareConfirmAction').val(), backAction:$('#hardwareBackAction').val(), pushAction:$('#hardwarePushAction').val()}}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
 	// Load factory defaults so reset buttons can restore only selected groups.
 	function loadDefaults(){ $.getJSON('/api/settings/defaults').done(data=>defaults=data); }
 	// Load current settings and refresh the defaults cache.
