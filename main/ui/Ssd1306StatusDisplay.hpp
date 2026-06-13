@@ -14,8 +14,8 @@
  */
 class Ssd1306StatusDisplay {
 public:
-    /* Initialise the optional SSD1306 at address 0x3c on the BSP I2C bus. */
-    esp_err_t init();
+    /* Initialise the optional SSD1306 at the configured 7-bit address on the BSP I2C bus. */
+    esp_err_t init(uint8_t i2c_address = 0x3c);
 
     /* Show a short status message, such as WIFI or SET WIFI. */
     void showStatus(const char *status);
@@ -29,7 +29,6 @@ public:
                        const char *status4);
 
 private:
-    static constexpr uint8_t OLED_ADDR = 0x3c;
     static constexpr int WIDTH = 128;
     static constexpr int HEIGHT = 64;
     static constexpr int BUFFER_SIZE = WIDTH * HEIGHT / 8;
@@ -37,6 +36,7 @@ private:
 
     bool available = false;
     void *device = nullptr;
+    uint8_t address = 0x3c;
     uint8_t buffer[BUFFER_SIZE] = {};
 
     /* Send command bytes to the SSD1306 command stream. */

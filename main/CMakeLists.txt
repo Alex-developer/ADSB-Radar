@@ -56,6 +56,7 @@ set(APP_SOURCES
     settings/SettingsServer.cpp
     ui/AircraftPopupController.cpp
     ui/CurvedButtonController.cpp
+    ui/HardwareControlService.cpp
     ui/PhotoDecoder.cpp
     ui/Ssd1306StatusDisplay.cpp
     wifi/CaptivePortal.cpp

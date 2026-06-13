@@ -1,34 +1,74 @@
 # ADSB Radar
 
-ADSB Radar is ESP-IDF firmware for a round, radar-style aircraft display running
-on the Waveshare ESP32-P4-WIFI6-Touch-LCD-XC. It turns the 4-inch 720x720 touch
-screen into a small live traffic display: aircraft are fetched over WiFi,
-projected around a configurable centre point, coloured by altitude, and drawn
-with callsign, flight level, speed, heading, climb/descent state, airports,
-country outlines, and optional runway geometry.
+ADSB Radar is ESP-IDF firmware for the Waveshare
+ESP32-P4-WIFI6-Touch-LCD-XC with the 4-inch 720x720 round touch display. It is a
+standalone aircraft radar display: the ESP32 joins WiFi, fetches live ADS-B
+traffic, plots aircraft around a configurable centre point, and draws a
+radar-style screen with range rings, heading information, altitude colours,
+airport markers, country outlines, weather icons, and optional runway geometry.
 
-The device is intended to run by itself once configured. WiFi credentials,
-location, data source, visual styling, notification rules, range presets, API
-keys, and display preferences are all stored on the ESP32. Day-to-day changes
-are made through the built-in browser admin page, while the radar itself remains
-usable from the touch screen.
+Once the device has been configured it does not need a Raspberry Pi or a
+browser left open. WiFi details, radar location, data source, display styling,
+notifications, ranges, API keys, and hardware-control settings are saved on the
+ESP32. The radar is operated from the touch screen, the optional physical
+controls, or the built-in browser admin page.
+
+AI assistance has been used during development of this project, mainly for code
+generation, refactoring, documentation, and debugging. The firmware has still
+been built and tested on the target ESP32-P4 hardware as the project has
+evolved.
 
 ## Screenshots
 
 | Live airport view | Wide-area traffic view |
 | --- | --- |
-| ![ADSB Radar centred on London Heathrow with nearby aircraft, airport labels, range rings, and the live sweep line](assets/egll.png) | ![ADSB Radar at 250 miles showing dense regional aircraft traffic, country outlines, altitude colours, and radar labels](assets/250miles.png) |
+| ![ADSB Radar centred on London Heathrow with nearby aircraft, airport labels, range rings, and the live sweep line](assets/Radar%20Images/egll.png) | ![ADSB Radar at 250 miles showing dense regional aircraft traffic, country outlines, altitude colours, and radar labels](assets/Radar%20Images/250miles.png) |
 | Centred on London Heathrow, showing close-range aircraft, airport context, range rings, heading arrows, and the sweep line. | A 250-mile regional view with country outlines, altitude-coloured aircraft, dense traffic, and range labels. |
 
 | Busy terminal area | Aircraft detail popup |
 | --- | --- |
-| ![ADSB Radar centred around Los Angeles with clustered aircraft, altitude colour bands, airport markers, and coastline outline](assets/lax.png) | ![ADSB Radar aircraft detail popup showing callsign, PlaneSpotters thumbnail, aircraft type, altitude, speed, heading, range, and vertical rate](assets/lax-photo.png) |
+| ![ADSB Radar centred around Los Angeles with clustered aircraft, altitude colour bands, airport markers, and coastline outline](assets/Radar%20Images/lax.png) | ![ADSB Radar aircraft detail popup showing callsign, PlaneSpotters thumbnail, aircraft type, altitude, speed, heading, range, and vertical rate](assets/Radar%20Images/lax-photo.png) |
 | Los Angeles terminal traffic with coastline overlay, airport markers, altitude colouring, and aircraft labels. | Touching an aircraft opens a detail popup with aircraft metadata and a PlaneSpotters thumbnail when one is available. |
 
-| Country boundary overlay |
-| --- |
-| ![ADSB Radar over south-east England with country boundary outlines, airport labels, altitude-coloured aircraft, and range rings](assets/eufi.png) |
-| Country outlines can be drawn subtly behind the radar data, giving extra context without hiding aircraft. |
+| Weather overlay | 2026 King's flypast |
+| --- | --- |
+| ![ADSB Radar showing airport weather icons next to airport labels](assets/Radar%20Images/weather.png) | ![ADSB Radar showing aircraft from the 2026 King's flypast heading towards London](assets/Radar%20Images/king1.png) |
+| Airport weather can be drawn beside airport labels using Open-Meteo data. | A wide-area view of the 2026 King's flypast traffic heading towards London. |
+
+| Country boundary overlay | Military aircraft example |
+| --- | --- |
+| ![ADSB Radar over south-east England with country boundary outlines, airport labels, altitude-coloured aircraft, and range rings](assets/Radar%20Images/eufi.png) | ![ADSB Radar showing a highlighted C-17 aircraft example](assets/Radar%20Images/c17.png) |
+| Country outlines can be drawn subtly behind the radar data, giving extra context without hiding aircraft. | Notification and aircraft-colour settings can be used to make aircraft of interest stand out. |
+
+## Browser UI
+
+The browser admin is part of the firmware and is served directly by the ESP32.
+These screenshots are from `assets/UI Images`.
+
+| Dashboard | Location |
+| --- | --- |
+| ![Dashboard page showing memory, GPS, caches, data source and aircraft status](assets/UI%20Images/Dashboard.png) | ![Location page with centre-source cards and OpenStreetMap location picker](assets/UI%20Images/Location.png) |
+| The dashboard brings together device state, aircraft status, screenshots, and settings import/export. | The location page supports manual position, GPS, airport search, and named-place search with a map picker. |
+
+| Data Sources | Display |
+| --- | --- |
+| ![Data Sources page with aircraft source cards and service keys](assets/UI%20Images/Data%20Sources.png) | ![Display settings page showing grouped visual controls](assets/UI%20Images/Display.png) |
+| Aircraft feeds, local receiver URLs, and service keys live in one place. | Display settings are grouped by purpose, including sweep, maps, aircraft, labels, colours, line widths, and visibility. |
+
+| Notifications | Ranges |
+| --- | --- |
+| ![Notifications page with single-line aircraft type rules](assets/UI%20Images/Notifications.png) | ![Ranges page with compact range preset rows](assets/UI%20Images/Ranges.png) |
+| Notification rules can colour, label, bold, or focus aircraft matching an exact aircraft type. | Up to ten range presets can be configured with refresh intervals, label limits, and optional history trails. |
+
+| Hardware Control | WiFi |
+| --- | --- |
+| ![Hardware Control page with SSD1306 module settings and a placeholder ST7789T3 tab](assets/UI%20Images/Hardware.png) | ![WiFi page showing current connection and scanned networks](assets/UI%20Images/Wifi.png) |
+| Hardware Control covers the SSD1306 status display, physical buttons, rotary encoder pins, and action mapping. | WiFi setup can scan networks, save credentials, and report the current connection state. |
+
+| Colour groups | Radar configuration |
+| --- | --- |
+| ![Display colour settings grouped into tabs](assets/UI%20Images/Colours.png) | ![Radar configuration controls in the browser UI](assets/UI%20Images/Radar%20Config.png) |
+| Colour, width, visibility, and label controls are grouped so busy pages stay manageable. | The radar configuration controls expose the low-level display options without needing a rebuild. |
 
 The project is configured for the 4-inch 720x720 display variant:
 
@@ -75,7 +115,7 @@ Waveshare hardware documentation:
 - Captive portal for first-time WiFi setup and a radar WiFi menu for IP address,
   changing WiFi, clearing NVS, and rebooting the device.
 - Browser-based Bootstrap admin page with Location, Data Sources, Display,
-  Notifications, Ranges, WiFi, and Dashboard sections.
+  Hardware Control, Notifications, Ranges, WiFi, and Dashboard sections.
 - Browser admin supports light and dark themes, stored per browser.
 - Display controls for colours, line widths, visibility, label fonts and sizes,
   tick lengths, radial spacing, sweep step, sweep draw interval, and sweep trail
@@ -88,9 +128,13 @@ Waveshare hardware documentation:
 - Optional USB GPS support for the radar centre, including GPS status and a
   button to copy the current GPS fix into the manual position fields.
 - Optional SSD1306 128x64 I2C display for local status such as WiFi/IP address
-  and radar data state.
+  and live background activity such as aircraft fetches, weather refreshes,
+  photo downloads, route lookups, and runway fetches.
 - Optional physical confirm/back buttons and rotary encoder for range changes
-  and a small device-side menu.
+  and a small device-side menu. GPIO pins and the SSD1306 I2C address are
+  configurable from the browser.
+- Hardware Control page includes a placeholder tab for future ST7789T3 module
+  options.
 
 ## Required Hardware
 
@@ -139,6 +183,9 @@ same operations the extension performs.
 |-- data/
 |   |-- airports.csv
 |   `-- world.geojson
+|-- assets/
+|   |-- Radar Images/
+|   `-- UI Images/
 |-- main/
 |   |-- app/
 |   |-- aircraft/
@@ -162,6 +209,9 @@ same operations the extension performs.
 
 `data/airports.csv` and `data/world.geojson` are build inputs. The generated C++
 files are written into the build directory and should not be committed.
+
+`assets/Radar Images/` and `assets/UI Images/` are documentation images used by
+this README. They are not compiled into the firmware.
 
 `managed_components/` is downloaded by ESP-IDF Component Manager and is ignored
 by Git.
@@ -270,33 +320,31 @@ restart captive portal mode, or reboot the ESP32.
 ## Browser Admin
 
 When the radar is connected to WiFi, open the device IP address in a browser.
+The admin page is where most of the setup work happens:
 
-The admin page is split into tabs:
-
-- Location: set the radar centre manually, from USB GPS, from an airport, or by
-  searching for a place through OpenWeather. This tab also sets the startup
-  range.
-- Data Sources: choose Airplanes.live, ADSB.lol, ADSB.fi, or a local aircraft
-  feed. This is also where the AirportDB and OpenWeather API keys are stored.
-- Display: control radar layers, aircraft headings, ground aircraft display,
-  sweep timing, label fonts and sizes, colours, line widths, tick lengths,
-  radial spacing, altitude colour bands, airport weather display, and hardware
-  control behaviour.
-- Notifications: configure up to ten aircraft type rules. A match can colour the
-  aircraft, force its label to remain visible, display banner text on the radar,
-  optionally use a bolder label, and optionally dim all other aircraft.
-- Ranges: configure up to ten range presets. Each preset has its own range,
-  aircraft refresh interval, maximum number of labels, and optional aircraft
-  history trail. History trails are off by default and, when enabled, show the
-  last ten received positions for each aircraft at that range.
-- WiFi: view the current connection, scan nearby networks with signal strength,
-  and store WiFi credentials.
-- Dashboard: view device memory, heap, cache use, WiFi state, GPS state, fetch
-  status, the full aircraft table, a downloadable LVGL screenshot, and settings
-  import/export. The aircraft table uses DataTables search and groups aircraft
-  by whether they are currently on the radar display. Settings are exported as
-  JSON with a version number; importing a different version warns the user but
-  does not block the import.
+- Dashboard shows the health of the ESP32: memory, heap low-water marks, cache
+  use, WiFi, GPS, data source state, aircraft fetch state, a searchable aircraft
+  table, a downloadable LVGL screenshot, and settings import/export.
+- Location sets the radar centre. You can type coordinates, use a USB GPS fix,
+  search the airport database, or search for a place name and pick the position
+  from the map.
+- Data Sources chooses the aircraft feed. The app can use Airplanes.live,
+  ADSB.lol, ADSB.fi, or a local readsb/dump1090-style `aircraft.json` URL. This
+  page also stores the AirportDB and OpenWeather keys.
+- Display controls the look of the radar: layers, country outlines, runways,
+  airport weather, heading indicators, ground aircraft, sweep timing, fading
+  trail, colours, line widths, label fonts, tick spacing, and altitude bands.
+- Hardware Control currently has an SSD1306 Module tab for the status OLED,
+  physical button GPIOs, rotary encoder GPIOs, and action mapping. A blank
+  ST7789T3 tab is present ready for the next hardware-control implementation.
+- Notifications configures up to ten exact aircraft-type rules. A match can
+  colour the aircraft, keep its label visible, use bold text, show radar banner
+  text, and optionally dim every other aircraft.
+- Ranges configures up to ten selectable range presets. Each preset has its own
+  distance, aircraft refresh interval, label limit, and optional ten-point
+  history trail.
+- WiFi shows the current connection, scans nearby networks with a normal signal
+  strength indicator, and stores WiFi credentials.
 
 Settings are stored in NVS on the ESP32 and are applied to the radar after they
 are saved.
@@ -405,12 +453,14 @@ The round display has touch controls around the radar edge:
 - WiFi button: show the IP address, start WiFi setup, clear NVS, or reboot.
 
 If the optional physical controls are fitted, the rotary encoder can change the
-range or drive the small device menu depending on the Display settings. The
-confirm, back, and encoder push buttons can also be mapped to common actions in
-the browser admin page.
+range or drive the small device menu. The confirm, back, and encoder push
+buttons can be mapped to common actions in the Hardware Control page. The GPIO
+pins are configurable, so the defaults do not have to match your final wiring.
 
-The optional SSD1306 display shows compact status information such as WiFi state,
-IP address, radar fetch status, and aircraft count.
+The optional SSD1306 display shows compact status information: WiFi state, IP
+address, current background activity, aircraft data status, range, aircraft
+count, and GPS state. It is deliberately simple, but useful when the round
+display is showing the radar and you still want to know what the ESP32 is doing.
 
 ## Useful Commands
 

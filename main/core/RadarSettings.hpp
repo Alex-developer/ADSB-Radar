@@ -269,6 +269,12 @@ typedef struct {
     int hardware_push_action;
     int hardware_menu_timeout_sec;
     bool hardware_show_hints;
+    int hardware_oled_i2c_addr;
+    int hardware_confirm_gpio;
+    int hardware_back_gpio;
+    int hardware_rotary_a_gpio;
+    int hardware_rotary_b_gpio;
+    int hardware_rotary_push_gpio;
 } radar_settings_t;
 
 /*

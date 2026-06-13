@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "cJSON.h"
-#include "driver/gpio.h"
 #include "esp_crt_bundle.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
@@ -41,7 +40,6 @@
 #include "bsp/esp-bsp.h"
 #include "airport_data.h"
 #include "country_boundary_data.h"
-#include "iot_knob.h"
 #include "PhotoDecoder.hpp"
 #include "RadarApp.hpp"
 
@@ -64,27 +62,7 @@ enum {
     DATA_MENU_TOGGLE_GROUND_AIRCRAFT,
 };
 
-static constexpr gpio_num_t CONFIRM_BUTTON_GPIO = GPIO_NUM_30;
-static constexpr gpio_num_t BACK_BUTTON_GPIO = GPIO_NUM_46;
-static constexpr gpio_num_t TRIM_A_GPIO = GPIO_NUM_47;
-static constexpr gpio_num_t TRIM_B_GPIO = GPIO_NUM_52;
-static constexpr gpio_num_t TRIM_PUSH_GPIO = GPIO_NUM_48;
 static constexpr uint32_t ROTARY_POLL_MS = 2;
-static constexpr int64_t BUTTON_DEBOUNCE_US = 40000;
-
-enum {
-    HW_MENU_RANGE = 0,
-    HW_MENU_FILTER,
-    HW_MENU_HEADING,
-    HW_MENU_AIRPORTS,
-    HW_MENU_COUNTRIES,
-    HW_MENU_RUNWAYS,
-    HW_MENU_GROUND,
-    HW_MENU_SWEEP,
-    HW_MENU_WIFI_SETUP,
-    HW_MENU_REBOOT,
-    HW_MENU_ITEM_COUNT,
-};
 
 RadarApp *RadarApp::active_app = nullptr;
 
@@ -318,35 +296,6 @@ void RadarApp::update_aircraft_ui_entry(lv_timer_t *timer)
     }
 }
 
-/* Forward the rotary encoder polling timer to the active application instance. */
-void RadarApp::rotary_timer_entry(lv_timer_t *timer)
-{
-    (void)timer;
-    if (active_app) {
-        active_app->rotary_timer_cb();
-    }
-}
-
-/* Queue one anti-clockwise encoder event for the LVGL timer to consume. */
-void RadarApp::knob_left_entry(void *knob, void *user_data)
-{
-    (void)knob;
-    RadarApp *app = (RadarApp *)user_data;
-    if (app) {
-        app->encoder_pending_delta--;
-    }
-}
-
-/* Queue one clockwise encoder event for the LVGL timer to consume. */
-void RadarApp::knob_right_entry(void *knob, void *user_data)
-{
-    (void)knob;
-    RadarApp *app = (RadarApp *)user_data;
-    if (app) {
-        app->encoder_pending_delta++;
-    }
-}
-
 /* Run the aircraft photo worker through the active application instance. */
 void RadarApp::aircraft_photo_fetch_task_entry(void *arg)
 {
@@ -522,7 +471,20 @@ void RadarApp::init_aircraft_storage(void)
 {
     latest_aircraft = alloc_aircraft_buffer();
     ui_aircraft_snapshot = alloc_aircraft_buffer();
-    ESP_ERROR_CHECK(latest_aircraft && ui_aircraft_snapshot ? ESP_OK : ESP_ERR_NO_MEM);
+    aircraft_ui_state = (aircraft_ui_state_t *)heap_caps_calloc(MAX_AIRCRAFT_TARGETS,
+                                                                sizeof(aircraft_ui_state[0]),
+                                                                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!aircraft_ui_state) {
+        aircraft_ui_state = (aircraft_ui_state_t *)heap_caps_calloc(MAX_AIRCRAFT_TARGETS,
+                                                                    sizeof(aircraft_ui_state[0]),
+                                                                    MALLOC_CAP_8BIT);
+    }
+    if (!aircraft_ui_state) {
+        ESP_LOGE(TAG, "Failed to allocate aircraft UI state buffer (%u bytes)",
+                 (unsigned)(MAX_AIRCRAFT_TARGETS * sizeof(aircraft_ui_state[0])));
+    }
+    ESP_ERROR_CHECK(latest_aircraft && ui_aircraft_snapshot && aircraft_ui_state ?
+                    ESP_OK : ESP_ERR_NO_MEM);
     aircraft_service.bind(aircraft_mutex, latest_aircraft, &latest_aircraft_count,
                           &latest_aircraft_generation, latest_status, sizeof(latest_status));
 }
@@ -596,51 +558,6 @@ void RadarApp::set_range_to_default(void)
         }
     }
     range_index = 0;
-}
-
-/* Configure the physical push buttons and trim rotary encoder GPIOs as pull-up inputs. */
-void RadarApp::init_rotary_inputs(void)
-{
-    const uint64_t pin_mask = (1ULL << CONFIRM_BUTTON_GPIO) |
-                              (1ULL << BACK_BUTTON_GPIO) |
-                              (1ULL << TRIM_PUSH_GPIO);
-    gpio_config_t io_conf = {};
-    io_conf.pin_bit_mask = pin_mask;
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    esp_err_t err = gpio_config(&io_conf);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Rotary/button GPIO setup failed: %s", esp_err_to_name(err));
-        return;
-    }
-
-    knob_config_t knob_cfg = {};
-    knob_cfg.default_direction = 0;
-    knob_cfg.gpio_encoder_a = TRIM_A_GPIO;
-    knob_cfg.gpio_encoder_b = TRIM_B_GPIO;
-    knob_cfg.enable_power_save = false;
-    rotary_knob_handle = iot_knob_create(&knob_cfg);
-    if (rotary_knob_handle) {
-        iot_knob_register_cb((knob_handle_t)rotary_knob_handle, KNOB_LEFT,
-                             RadarApp::knob_left_entry, this);
-        iot_knob_register_cb((knob_handle_t)rotary_knob_handle, KNOB_RIGHT,
-                             RadarApp::knob_right_entry, this);
-    } else {
-        ESP_LOGW(TAG, "Rotary knob driver setup failed");
-    }
-    encoder_pending_delta = 0;
-    encoder_event_accum = 0;
-    confirm_last_level = gpio_get_level(CONFIRM_BUTTON_GPIO);
-    back_last_level = gpio_get_level(BACK_BUTTON_GPIO);
-    push_last_level = gpio_get_level(TRIM_PUSH_GPIO);
-    confirm_last_change_us = back_last_change_us = push_last_change_us = esp_timer_get_time();
-    ESP_LOGI(TAG, "Rotary encoder configured: CLK=%d DATA=%d PUSH=%d initial=%d/%d/%d",
-             TRIM_A_GPIO, TRIM_B_GPIO, TRIM_PUSH_GPIO,
-             gpio_get_level(TRIM_A_GPIO), gpio_get_level(TRIM_B_GPIO), gpio_get_level(TRIM_PUSH_GPIO));
-    ESP_LOGI(TAG, "Hardware buttons configured: confirm=%d back=%d initial=%d/%d",
-             CONFIRM_BUTTON_GPIO, BACK_BUTTON_GPIO, confirm_last_level, back_last_level);
 }
 
 /* Calculate the smallest signed angular difference between two bearings. */
@@ -1012,6 +929,20 @@ void RadarApp::update_oled_ip(const char *ip, bool setup_ap)
     refresh_oled_dashboard();
 }
 
+/* Show the current background task activity on the optional SSD1306. */
+void RadarApp::update_oled_activity(const char *fmt, ...)
+{
+    if (!fmt || fmt[0] == '\0') {
+        snprintf(oled_activity_line, sizeof(oled_activity_line), "%s", "IDLE");
+    } else {
+        va_list args;
+        va_start(args, fmt);
+        vsnprintf(oled_activity_line, sizeof(oled_activity_line), fmt, args);
+        va_end(args);
+    }
+    refresh_oled_dashboard();
+}
+
 /* Keep the optional OLED focused on network state and current radar health. */
 void RadarApp::refresh_oled_dashboard(void)
 {
@@ -1027,9 +958,9 @@ void RadarApp::refresh_oled_dashboard(void)
     char line2[24];
     char line3[24];
     char line4[24];
-    snprintf(line1, sizeof(line1), "STATUS %s", status[0] ? status : "WAIT");
-    snprintf(line2, sizeof(line2), "RANGE %dMI", get_current_range_mi());
-    snprintf(line3, sizeof(line3), "AIRCRAFT %u", (unsigned)ui_aircraft_count);
+    snprintf(line1, sizeof(line1), "%s", oled_activity_line[0] ? oled_activity_line : "IDLE");
+    snprintf(line2, sizeof(line2), "DATA %s", status[0] ? status : "WAIT");
+    snprintf(line3, sizeof(line3), "%dMI %u AC", get_current_range_mi(), (unsigned)ui_aircraft_count);
     gps_snapshot_t gps_snapshot = {};
     gps.getSnapshot(&gps_snapshot);
     snprintf(line4, sizeof(line4), "GPS %s",
@@ -1184,235 +1115,6 @@ void RadarApp::toggle_data_menu(void)
     }
 }
 
-/* Refresh the hardware menu values and highlighted row. */
-void RadarApp::refresh_hardware_menu(void)
-{
-    if (!hardware_menu) {
-        return;
-    }
-
-    static const char *labels[HW_MENU_ITEM_COUNT] = {
-        "Range", "Aircraft", "Heading", "Airports", "Countries",
-        "Runways", "Ground A/C", "Sweep", "WiFi Setup", "Reboot"
-    };
-    char values[HW_MENU_ITEM_COUNT][32] = {};
-    snprintf(values[HW_MENU_RANGE], sizeof(values[HW_MENU_RANGE]), "%d MI", get_current_range_mi());
-    snprintf(values[HW_MENU_FILTER], sizeof(values[HW_MENU_FILTER]), "%s",
-             aircraft_filter == AIRCRAFT_FILTER_MILITARY ? "Military" :
-             (aircraft_filter == AIRCRAFT_FILTER_INTERESTING ? "Interesting" : "All"));
-    snprintf(values[HW_MENU_HEADING], sizeof(values[HW_MENU_HEADING]), "%s",
-             !settings.show_aircraft_heading ||
-             settings.aircraft_heading_style == RADAR_HEADING_STYLE_NONE ? "Off" :
-             (settings.aircraft_heading_style == RADAR_HEADING_STYLE_LINE ? "Line" : "Arrow"));
-    snprintf(values[HW_MENU_AIRPORTS], sizeof(values[HW_MENU_AIRPORTS]), "%s", settings.show_airports ? "On" : "Off");
-    snprintf(values[HW_MENU_COUNTRIES], sizeof(values[HW_MENU_COUNTRIES]), "%s", settings.show_countries ? "On" : "Off");
-    snprintf(values[HW_MENU_RUNWAYS], sizeof(values[HW_MENU_RUNWAYS]), "%s",
-             settings.center_source == RADAR_CENTER_SOURCE_AIRPORT ?
-             (settings.show_airport_runways ? "On" : "Off") : "N/A");
-    snprintf(values[HW_MENU_GROUND], sizeof(values[HW_MENU_GROUND]), "%s",
-             settings.show_ground_aircraft ? "On" : "Off");
-    snprintf(values[HW_MENU_SWEEP], sizeof(values[HW_MENU_SWEEP]), "%s", settings.show_sweep ? "On" : "Off");
-    snprintf(values[HW_MENU_WIFI_SETUP], sizeof(values[HW_MENU_WIFI_SETUP]), "Start");
-    snprintf(values[HW_MENU_REBOOT], sizeof(values[HW_MENU_REBOOT]), "Restart");
-
-    for (int i = 0; i < HW_MENU_ITEM_COUNT; ++i) {
-        if (hardware_menu_labels[i]) {
-            lv_label_set_text(hardware_menu_labels[i], labels[i]);
-        }
-        if (hardware_menu_values[i]) {
-            lv_label_set_text(hardware_menu_values[i], values[i]);
-        }
-        if (hardware_menu_rows[i]) {
-            bool selected = i == hardware_menu_selected;
-            lv_obj_set_style_bg_opa(hardware_menu_rows[i], selected ? LV_OPA_70 : LV_OPA_20, 0);
-            lv_obj_set_style_border_width(hardware_menu_rows[i], selected ? 2 : 1, 0);
-        }
-    }
-
-    if (hardware_menu_help) {
-        lv_label_set_text(hardware_menu_help,
-                          settings.hardware_show_hints ?
-                          "Rotate: move  Confirm/Push: select  Back: close" : "");
-    }
-}
-
-/* Show the hardware menu overlay and close the touch popups below it. */
-void RadarApp::show_hardware_menu(void)
-{
-    if (!hardware_menu || !settings.hardware_controls_enabled) {
-        return;
-    }
-    hide_range_menu();
-    hide_data_menu();
-    hide_wifi_menu();
-    hardware_menu_last_use_us = esp_timer_get_time();
-    refresh_hardware_menu();
-    lv_obj_clear_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(hardware_menu);
-}
-
-/* Hide the hardware menu overlay. */
-void RadarApp::hide_hardware_menu(void)
-{
-    if (hardware_menu) {
-        lv_obj_add_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-/* Move the hardware menu selection with wraparound. */
-void RadarApp::move_hardware_menu_selection(int delta)
-{
-    if (!hardware_menu || lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
-        return;
-    }
-    hardware_menu_selected += delta;
-    while (hardware_menu_selected < 0) {
-        hardware_menu_selected += HW_MENU_ITEM_COUNT;
-    }
-    hardware_menu_selected %= HW_MENU_ITEM_COUNT;
-    hardware_menu_last_use_us = esp_timer_get_time();
-    refresh_hardware_menu();
-}
-
-/* Execute the currently selected hardware menu row. */
-void RadarApp::select_hardware_menu_item(void)
-{
-    if (!hardware_menu || lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
-        show_hardware_menu();
-        return;
-    }
-
-    bool changed = false;
-    hardware_menu_last_use_us = esp_timer_get_time();
-    switch (hardware_menu_selected) {
-    case HW_MENU_RANGE:
-        change_range_by_delta(1);
-        break;
-    case HW_MENU_FILTER:
-        aircraft_filter = aircraft_filter == AIRCRAFT_FILTER_ALL ? AIRCRAFT_FILTER_MILITARY :
-                          (aircraft_filter == AIRCRAFT_FILTER_MILITARY ? AIRCRAFT_FILTER_INTERESTING :
-                           AIRCRAFT_FILTER_ALL);
-        changed = true;
-        break;
-    case HW_MENU_HEADING:
-        if (!settings.show_aircraft_heading ||
-            settings.aircraft_heading_style == RADAR_HEADING_STYLE_NONE) {
-            settings.show_aircraft_heading = true;
-            settings.aircraft_heading_style = RADAR_HEADING_STYLE_ARROW;
-        } else if (settings.aircraft_heading_style == RADAR_HEADING_STYLE_ARROW) {
-            settings.aircraft_heading_style = RADAR_HEADING_STYLE_LINE;
-        } else {
-            settings.show_aircraft_heading = false;
-            settings.aircraft_heading_style = RADAR_HEADING_STYLE_NONE;
-        }
-        settings.visible.aircraft_heading = settings.show_aircraft_heading;
-        changed = true;
-        break;
-    case HW_MENU_AIRPORTS:
-        settings.show_airports = !settings.show_airports;
-        settings.visible.airport = settings.show_airports;
-        changed = true;
-        break;
-    case HW_MENU_COUNTRIES:
-        settings.show_countries = !settings.show_countries;
-        settings.visible.country_boundary = settings.show_countries;
-        changed = true;
-        break;
-    case HW_MENU_RUNWAYS:
-        if (settings.center_source == RADAR_CENTER_SOURCE_AIRPORT) {
-            settings.show_airport_runways = !settings.show_airport_runways;
-            settings.visible.runway = settings.show_airport_runways;
-            if (!settings.show_airport_runways) {
-                clear_active_runway_cache();
-            } else if (wifi_event_group) {
-                xEventGroupSetBits(wifi_event_group, FETCH_NOW_BIT);
-            }
-            changed = true;
-        }
-        break;
-    case HW_MENU_GROUND:
-        settings.show_ground_aircraft = !settings.show_ground_aircraft;
-        changed = true;
-        break;
-    case HW_MENU_SWEEP:
-        settings.show_sweep = !settings.show_sweep;
-        settings.visible.sweep = settings.show_sweep;
-        changed = true;
-        break;
-    case HW_MENU_WIFI_SETUP:
-        hide_hardware_menu();
-        request_wifi_portal();
-        break;
-    case HW_MENU_REBOOT:
-        set_data_status("REBOOT");
-        esp_restart();
-        break;
-    default:
-        break;
-    }
-
-    if (changed) {
-        settings_generation++;
-        invalidate_aircraft_display();
-        refresh_data_menu();
-    }
-    refresh_hardware_menu();
-}
-
-/* Apply one configured action from a physical button. */
-void RadarApp::apply_hardware_button_action(int action)
-{
-    if (!settings.hardware_controls_enabled) {
-        return;
-    }
-
-    switch (action) {
-    case RADAR_HW_BUTTON_NONE:
-        break;
-    case RADAR_HW_BUTTON_BACK_CLOSE:
-        if (hardware_menu && !lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
-            hide_hardware_menu();
-        } else {
-            hide_range_menu();
-            hide_data_menu();
-            hide_wifi_menu();
-        }
-        break;
-    case RADAR_HW_BUTTON_RANGE_UP:
-        change_range_by_delta(1);
-        break;
-    case RADAR_HW_BUTTON_RANGE_DOWN:
-        change_range_by_delta(-1);
-        break;
-    case RADAR_HW_BUTTON_DATA_MENU:
-        toggle_data_menu();
-        break;
-    case RADAR_HW_BUTTON_WIFI_MENU:
-        toggle_wifi_menu();
-        break;
-    case RADAR_HW_BUTTON_MENU_SELECT:
-    default:
-        select_hardware_menu_item();
-        break;
-    }
-}
-
-/* Return true once for each debounced active-low button press. */
-bool RadarApp::consume_button_press(int gpio, int *last_level, int64_t *last_change_us)
-{
-    int level = gpio_get_level((gpio_num_t)gpio);
-    int64_t now_us = esp_timer_get_time();
-    if (level == *last_level) {
-        return false;
-    }
-    if (now_us - *last_change_us < BUTTON_DEBOUNCE_US) {
-        return false;
-    }
-    *last_change_us = now_us;
-    *last_level = level;
-    return level == 0;
-}
-
 /* Handle left, middle, and right range-button hit zones. */
 void RadarApp::range_button_event(lv_event_t *event)
 {
@@ -1435,60 +1137,6 @@ void RadarApp::range_button_event(lv_event_t *event)
     }
 
     change_range_by_delta(direction < 0 ? -1 : 1);
-}
-
-/* Decode the mechanical encoder from the CLK falling edge and DATA level. */
-void RadarApp::rotary_timer_cb(void)
-{
-    if (!settings.hardware_controls_enabled) {
-        return;
-    }
-
-    if (consume_button_press(CONFIRM_BUTTON_GPIO, &confirm_last_level, &confirm_last_change_us)) {
-        apply_hardware_button_action(settings.hardware_confirm_action);
-    }
-    if (consume_button_press(BACK_BUTTON_GPIO, &back_last_level, &back_last_change_us)) {
-        apply_hardware_button_action(settings.hardware_back_action);
-    }
-    if (consume_button_press(TRIM_PUSH_GPIO, &push_last_level, &push_last_change_us)) {
-        apply_hardware_button_action(settings.hardware_push_action);
-    }
-
-    if (hardware_menu && !lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN) &&
-        settings.hardware_menu_timeout_sec > 0 &&
-        esp_timer_get_time() - hardware_menu_last_use_us >
-            (int64_t)settings.hardware_menu_timeout_sec * 1000000LL) {
-        hide_hardware_menu();
-    }
-
-    int raw_delta = encoder_pending_delta;
-    if (raw_delta == 0) {
-        return;
-    }
-    encoder_pending_delta = 0;
-    encoder_event_accum += raw_delta;
-
-    int delta = 0;
-    if (encoder_event_accum >= 2) {
-        delta = 1;
-        encoder_event_accum -= 2;
-    } else if (encoder_event_accum <= -2) {
-        delta = -1;
-        encoder_event_accum += 2;
-    }
-    if (delta == 0) {
-        return;
-    }
-
-    ESP_LOGI(TAG, "Rotary step raw=%d accum=%d delta=%d", raw_delta, encoder_event_accum, delta);
-    if (hardware_menu && !lv_obj_has_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN)) {
-        move_hardware_menu_selection(delta);
-    } else if (settings.hardware_rotary_action == RADAR_HW_ROTARY_MENU) {
-        show_hardware_menu();
-        move_hardware_menu_selection(delta);
-    } else {
-        change_range_by_delta(delta);
-    }
 }
 
 /* Select one configured range from the range popup and request an immediate fetch. */
@@ -1754,6 +1402,14 @@ void RadarApp::update_aircraft_track_history(const aircraft_data_t *snapshot, si
 /* Choose the colour used to plot one aircraft marker. */
 uint32_t RadarApp::marker_color(const aircraft_data_t *aircraft, bool hit, bool dimmed) const
 {
+    return marker_color_with_notification(aircraft, matching_notification(aircraft), hit, dimmed);
+}
+
+/* Choose the colour used to plot one aircraft marker when notification matching is already known. */
+uint32_t RadarApp::marker_color_with_notification(const aircraft_data_t *aircraft,
+                                                  const notification_setting_t *notification,
+                                                  bool hit, bool dimmed) const
+{
     uint32_t color = settings.altitude_colors.above_40000;
     if (hit) {
         color = settings.colors.aircraft_hit;
@@ -1763,7 +1419,6 @@ uint32_t RadarApp::marker_color(const aircraft_data_t *aircraft, bool hit, bool 
                 strcmp(aircraft->squawk, "7700") == 0)) {
         color = settings.colors.aircraft_emergency;
     } else {
-        const notification_setting_t *notification = matching_notification(aircraft);
         if (notification) {
             color = notification->color;
         } else if (aircraft->seen_s > 7.5f) {
@@ -1785,11 +1440,11 @@ uint32_t RadarApp::marker_color(const aircraft_data_t *aircraft, bool hit, bool 
     return dimmed ? dim_colour(color) : color;
 }
 
-/* Return the first notification rule whose aircraft-type text matches this aircraft. */
-const notification_setting_t *RadarApp::matching_notification(const aircraft_data_t *aircraft) const
+/* Return the first matching notification row index for an aircraft type. */
+int RadarApp::matching_notification_index(const aircraft_data_t *aircraft) const
 {
     if (!aircraft || aircraft->type[0] == '\0') {
-        return nullptr;
+        return -1;
     }
     for (size_t i = 0; i < MAX_NOTIFICATION_SETTINGS; ++i) {
         const notification_setting_t *notification = &settings.notifications[i];
@@ -1797,10 +1452,20 @@ const notification_setting_t *RadarApp::matching_notification(const aircraft_dat
             continue;
         }
         if (string_equals_trimmed_ci(aircraft->type, notification->type_match)) {
-            return notification;
+            return (int)i;
         }
     }
-    return nullptr;
+    return -1;
+}
+
+/* Return the first notification rule whose aircraft-type text matches this aircraft. */
+const notification_setting_t *RadarApp::matching_notification(const aircraft_data_t *aircraft) const
+{
+    int index = matching_notification_index(aircraft);
+    if (index < 0 || index >= (int)MAX_NOTIFICATION_SETTINGS) {
+        return nullptr;
+    }
+    return &settings.notifications[index];
 }
 
 /* Check whether an aircraft matches a notification rule that focuses the radar. */
@@ -1880,7 +1545,7 @@ int RadarApp::clamp_int(int value, int min_value, int max_value)
 /* Project one aircraft into radar canvas coordinates for drawing and hit testing. */
 bool RadarApp::project_aircraft_to_radar(const aircraft_data_t *aircraft, int range_mi, int *x, int *y)
 {
-    if (!aircraft || aircraft->distance_mi > (float)range_mi || range_mi <= 0) {
+    if (!aircraft || !x || !y || aircraft->distance_mi > (float)range_mi || range_mi <= 0) {
         return false;
     }
 
@@ -1889,6 +1554,100 @@ bool RadarApp::project_aircraft_to_radar(const aircraft_data_t *aircraft, int ra
     *x = RADAR_CENTER + (int)(cosf(rad) * distance);
     *y = RADAR_CENTER + (int)(sinf(rad) * distance);
     return true;
+}
+
+/* Place an aircraft label away from the symbol and choose the nearest leader endpoint. */
+void RadarApp::position_aircraft_label(aircraft_ui_state_t *state)
+{
+    if (!state) {
+        return;
+    }
+
+    static constexpr int LABEL_W = 124;
+    static constexpr int LABEL_H = 44;
+    static constexpr int GAP_X = 24;
+    static constexpr int GAP_Y = 12;
+
+    int side = state->x < RADAR_CENTER ? 1 : -1;
+    int vertical = state->y < RADAR_CENTER ? 1 : -1;
+    int label_x = side > 0 ? state->x + GAP_X : state->x - GAP_X - LABEL_W;
+    int label_y = state->y + (vertical * GAP_Y) - (LABEL_H / 2);
+
+    int min_x = RADAR_CENTER - RADAR_RADIUS + 8;
+    int max_x = RADAR_CENTER + RADAR_RADIUS - LABEL_W - 8;
+    int min_y = RADAR_CENTER - RADAR_RADIUS + 8;
+    int max_y = RADAR_CENTER + RADAR_RADIUS - LABEL_H - 8;
+    label_x = clamp_int(label_x, min_x, max_x);
+    label_y = clamp_int(label_y, min_y, max_y);
+
+    state->label_x = label_x;
+    state->label_y = label_y;
+    state->leader_x = side > 0 ? label_x : label_x + LABEL_W;
+    state->leader_y = clamp_int(state->y, label_y + 8, label_y + LABEL_H - 8);
+}
+
+/* Precompute aircraft display state once per fetched snapshot. */
+void RadarApp::build_aircraft_ui_state(const aircraft_data_t *snapshot, size_t count, int range_mi)
+{
+    if (!snapshot || !aircraft_ui_state || range_mi <= 0) {
+        aircraft_ui_focus_active = false;
+        return;
+    }
+    if (count > MAX_AIRCRAFT_TARGETS) {
+        count = MAX_AIRCRAFT_TARGETS;
+    }
+
+    aircraft_ui_focus_active = false;
+    for (size_t i = 0; i < count; ++i) {
+        aircraft_ui_state_t *state = &aircraft_ui_state[i];
+        *state = {};
+        state->notification_index = -1;
+        state->label_slot = -1;
+
+        if (snapshot[i].distance_mi > (float)range_mi) {
+            continue;
+        }
+
+        state->in_range = true;
+        if (!aircraft_matches_filter(&snapshot[i])) {
+            continue;
+        }
+
+        state->visible = true;
+        state->notification_index = matching_notification_index(&snapshot[i]);
+        if (state->notification_index >= 0 &&
+            settings.notifications[state->notification_index].dim_others) {
+            state->focus_match = true;
+            aircraft_ui_focus_active = true;
+        }
+        if (project_aircraft_to_radar(&snapshot[i], range_mi, &state->x, &state->y)) {
+            position_aircraft_label(state);
+        }
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+        aircraft_ui_state_t *state = &aircraft_ui_state[i];
+        if (!state->visible) {
+            continue;
+        }
+        const notification_setting_t *notification =
+            state->notification_index >= 0 ? &settings.notifications[state->notification_index] : nullptr;
+        state->dimmed = aircraft_ui_focus_active && !state->focus_match;
+        state->color = marker_color_with_notification(&snapshot[i], notification, false, state->dimmed);
+    }
+
+    size_t label_limit = get_current_label_limit();
+    size_t label_slot = 0;
+    for (size_t i = 0; i < count && label_slot < MAX_AIRCRAFT_LABELS; ++i) {
+        aircraft_ui_state_t *state = &aircraft_ui_state[i];
+        if (!state->visible) {
+            continue;
+        }
+        if (label_slot >= label_limit && state->notification_index < 0) {
+            continue;
+        }
+        state->label_slot = (int)label_slot++;
+    }
 }
 
 /* Find the plotted aircraft nearest to the supplied screen point. */
@@ -3146,24 +2905,20 @@ void RadarApp::update_aircraft_plot(const aircraft_data_t *snapshot, size_t coun
     lv_display_enable_invalidation(display, false);
     lv_canvas_fill_bg(aircraft_canvas, lv_color_hex(0x000000), LV_OPA_TRANSP);
 
-    const bool focus_active = notification_focus_active(snapshot, count, range_mi);
     const bool show_history = range_index < MAX_RANGE_SETTINGS &&
                               settings.ranges[range_index].show_history_trail;
     for (size_t i = 0; i < count; ++i) {
         if (snapshot[i].distance_mi > (float)range_mi) {
             break;
         }
-        if (!aircraft_matches_filter(&snapshot[i])) {
+        const aircraft_ui_state_t *state = aircraft_ui_state ? &aircraft_ui_state[i] : nullptr;
+        if (!state) {
+            continue;
+        }
+        if (!state->visible) {
             continue;
         }
 
-        float rad = ((float)snapshot[i].bearing_deg - 90.0f) * PI_F / 180.0f;
-        int distance = (int)(((float)RADAR_RADIUS * snapshot[i].distance_mi) / (float)range_mi);
-        int x = RADAR_CENTER + (int)(cosf(rad) * distance);
-        int y = RADAR_CENTER + (int)(sinf(rad) * distance);
-
-        const bool dimmed = focus_active && !matches_focus_notification(&snapshot[i]);
-        uint32_t color = marker_color(&snapshot[i], false, dimmed);
         if (show_history) {
             aircraft_track_history_t *track = track_history_for_aircraft(&snapshot[i]);
             if (track) {
@@ -3176,22 +2931,22 @@ void RadarApp::update_aircraft_plot(const aircraft_data_t *snapshot, size_t coun
                                               (float)range_mi);
                     int hist_x = RADAR_CENTER + (int)(cosf(hist_rad) * hist_distance);
                     int hist_y = RADAR_CENTER + (int)(sinf(hist_rad) * hist_distance);
-                    int opa = dimmed ? LV_OPA_20 : (LV_OPA_60 - ((int)h * 4));
+                    int opa = state->dimmed ? LV_OPA_20 : (LV_OPA_60 - ((int)h * 4));
                     if (opa < LV_OPA_20) {
                         opa = LV_OPA_20;
                     }
-                    draw_aircraft_history_dot(aircraft_canvas, hist_x, hist_y, color, (lv_opa_t)opa);
+                    draw_aircraft_history_dot(aircraft_canvas, hist_x, hist_y, state->color, (lv_opa_t)opa);
                 }
             }
         }
         if (settings.show_aircraft_heading &&
             settings.visible.aircraft_heading &&
             settings.aircraft_heading_style != RADAR_HEADING_STYLE_NONE) {
-            draw_aircraft_heading_indicator(aircraft_canvas, x, y, snapshot[i].heading_deg,
-                                            color, settings.widths.aircraft_heading,
+            draw_aircraft_heading_indicator(aircraft_canvas, state->x, state->y, snapshot[i].heading_deg,
+                                            state->color, settings.widths.aircraft_heading,
                                             settings.aircraft_heading_style == RADAR_HEADING_STYLE_ARROW);
         }
-        draw_aircraft_head_symbol(aircraft_canvas, x, y, color);
+        draw_aircraft_head_symbol(aircraft_canvas, state->x, state->y, state->color);
     }
 
     lv_display_enable_invalidation(display, true);
@@ -3212,32 +2967,28 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
     for (size_t i = 0; i < MAX_AIRCRAFT_LABELS; ++i) {
         markers[i].visible = false;
         markers[i].highlighted = false;
-        lv_obj_add_flag(markers[i].callsign_label, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(markers[i].detail_label, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(markers[i].trend_icon, LV_OBJ_FLAG_HIDDEN);
     }
 
-    size_t label_limit = get_current_label_limit();
     size_t label_index = 0;
-    const bool focus_active = notification_focus_active(snapshot, count, range_mi);
-    for (size_t i = 0; i < count && label_index < MAX_AIRCRAFT_LABELS; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         if (snapshot[i].distance_mi > (float)range_mi) {
             break;
         }
-        if (!aircraft_matches_filter(&snapshot[i])) {
+        const aircraft_ui_state_t *state = aircraft_ui_state ? &aircraft_ui_state[i] : nullptr;
+        if (!state) {
             continue;
         }
-        const notification_setting_t *notification = matching_notification(&snapshot[i]);
-        if (label_index >= label_limit && !notification) {
+        if (!state->visible || state->label_slot < 0 ||
+            state->label_slot >= (int)MAX_AIRCRAFT_LABELS) {
             continue;
         }
+        const notification_setting_t *notification =
+            state->notification_index >= 0 ? &settings.notifications[state->notification_index] : nullptr;
 
-        float rad = ((float)snapshot[i].bearing_deg - 90.0f) * PI_F / 180.0f;
-        int distance = (int)(((float)RADAR_RADIUS * snapshot[i].distance_mi) / (float)range_mi);
-        int x = RADAR_CENTER + (int)(cosf(rad) * distance);
-        int y = RADAR_CENTER + (int)(sinf(rad) * distance);
-
-        radar_marker_t *marker = &markers[label_index++];
+        radar_marker_t *marker = &markers[state->label_slot];
+        if ((size_t)state->label_slot >= label_index) {
+            label_index = (size_t)state->label_slot + 1;
+        }
         marker->data = snapshot[i];
         marker->visible = true;
         marker->highlighted = false;
@@ -3248,7 +2999,10 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
         snprintf(callsign_text, sizeof(callsign_text), "%s %s",
                  snapshot[i].callsign[0] ? snapshot[i].callsign : "--------",
                  snapshot[i].type[0] ? snapshot[i].type : "----");
-        lv_label_set_text(marker->callsign_label, callsign_text);
+        const char *current_callsign = lv_label_get_text(marker->callsign_label);
+        if (!current_callsign || strcmp(current_callsign, callsign_text) != 0) {
+            lv_label_set_text(marker->callsign_label, callsign_text);
+        }
 
         char altitude_text[16];
         if (snapshot[i].altitude_ft <= 0) {
@@ -3263,37 +3017,26 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
         char detail_text[32];
         snprintf(detail_text, sizeof(detail_text), "%s\n%d", altitude_text,
                  snapshot[i].speed_kt >= 0 ? snapshot[i].speed_kt : 0);
-        lv_label_set_text(marker->detail_label, detail_text);
-        const bool dimmed = focus_active && !matches_focus_notification(&snapshot[i]);
-        uint32_t color = marker_color(&snapshot[i], false, dimmed);
-        lv_obj_set_style_text_color(marker->callsign_label, lv_color_hex(color), 0);
-        lv_obj_set_style_text_color(marker->detail_label, lv_color_hex(color), 0);
+        const char *current_detail = lv_label_get_text(marker->detail_label);
+        if (!current_detail || strcmp(current_detail, detail_text) != 0) {
+            lv_label_set_text(marker->detail_label, detail_text);
+        }
+        lv_obj_set_style_text_color(marker->callsign_label, lv_color_hex(state->color), 0);
+        lv_obj_set_style_text_color(marker->detail_label, lv_color_hex(state->color), 0);
         bool notification_highlight = notification != nullptr;
         lv_obj_set_style_text_font(marker->callsign_label,
                                    aircraft_label_font(false, notification_highlight), 0);
         lv_obj_set_style_text_font(marker->detail_label,
                                    aircraft_label_font(true, notification_highlight), 0);
         lv_obj_set_style_text_opa(marker->callsign_label,
-                                  dimmed ? LV_OPA_40 :
+                                  state->dimmed ? LV_OPA_40 :
                                   (notification && notification->bold_text ? LV_OPA_COVER : LV_OPA_80), 0);
         lv_obj_set_style_text_opa(marker->detail_label,
-                                  dimmed ? LV_OPA_30 :
+                                  state->dimmed ? LV_OPA_30 :
                                   (notification && notification->bold_text ? LV_OPA_90 : LV_OPA_70), 0);
 
-        int label_x = x + 13;
-        int label_y = y - 17;
-        if (label_x > RADAR_SIZE - 124) {
-            label_x = x - 124;
-        }
-        if (label_x < 0) {
-            label_x = 0;
-        }
-        if (label_y < 0) {
-            label_y = 0;
-        }
-        if (label_y > RADAR_SIZE - 44) {
-            label_y = RADAR_SIZE - 44;
-        }
+        int label_x = state->label_x;
+        int label_y = state->label_y;
 
         int trend = 0;
         if (settings.show_climb_descent && snapshot[i].vertical_rate_fpm != INT_MIN &&
@@ -3309,16 +3052,16 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
                 marker->trend_points[2] = {9, 8};
                 uint32_t trend_color = settings.colors.climb_triangle;
                 lv_obj_set_style_line_color(marker->trend_icon,
-                                            lv_color_hex(dimmed ? dim_colour(trend_color) : trend_color), 0);
+                                            lv_color_hex(state->dimmed ? dim_colour(trend_color) : trend_color), 0);
             } else {
                 marker->trend_points[0] = {1, 1};
                 marker->trend_points[1] = {5, 8};
                 marker->trend_points[2] = {9, 1};
                 uint32_t trend_color = settings.colors.descent_triangle;
                 lv_obj_set_style_line_color(marker->trend_icon,
-                                            lv_color_hex(dimmed ? dim_colour(trend_color) : trend_color), 0);
+                                            lv_color_hex(state->dimmed ? dim_colour(trend_color) : trend_color), 0);
             }
-            lv_obj_set_style_line_opa(marker->trend_icon, dimmed ? LV_OPA_40 : LV_OPA_COVER, 0);
+            lv_obj_set_style_line_opa(marker->trend_icon, state->dimmed ? LV_OPA_40 : LV_OPA_COVER, 0);
             lv_obj_set_pos(marker->trend_icon, label_x, label_y + 15);
             lv_obj_clear_flag(marker->trend_icon, LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_pos(marker->detail_label, label_x + 13, label_y + 13);
@@ -3327,6 +3070,12 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
             lv_obj_set_pos(marker->detail_label, label_x, label_y + 13);
         }
     }
+
+    for (size_t i = label_index; i < MAX_AIRCRAFT_LABELS; ++i) {
+        lv_obj_add_flag(markers[i].callsign_label, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(markers[i].detail_label, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(markers[i].trend_icon, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 /* Show every configured notification rule that matches visible aircraft. */
@@ -3334,24 +3083,21 @@ void RadarApp::update_notification_banner(const aircraft_data_t *snapshot, size_
 {
     bool active[MAX_NOTIFICATION_SETTINGS] = {};
 
-    for (size_t rule_index = 0; rule_index < MAX_NOTIFICATION_SETTINGS; ++rule_index) {
-        const notification_setting_t *notification = &settings.notifications[rule_index];
-        if (!notification->enabled || notification->type_match[0] == '\0' || notification->text[0] == '\0') {
+    for (size_t aircraft_index = 0; aircraft_index < count; ++aircraft_index) {
+        if (snapshot[aircraft_index].distance_mi > (float)range_mi) {
+            break;
+        }
+        const aircraft_ui_state_t *state = aircraft_ui_state ? &aircraft_ui_state[aircraft_index] : nullptr;
+        if (!state) {
             continue;
         }
-
-        for (size_t aircraft_index = 0; aircraft_index < count; ++aircraft_index) {
-            const aircraft_data_t *aircraft = &snapshot[aircraft_index];
-            if (aircraft->distance_mi > (float)range_mi) {
-                break;
-            }
-            if (!aircraft_matches_filter(aircraft) || aircraft->type[0] == '\0') {
-                continue;
-            }
-            if (string_equals_trimmed_ci(aircraft->type, notification->type_match)) {
-                active[rule_index] = true;
-                break;
-            }
+        if (!state->visible || state->notification_index < 0) {
+            continue;
+        }
+        size_t rule_index = (size_t)state->notification_index;
+        if (rule_index < MAX_NOTIFICATION_SETTINGS &&
+            settings.notifications[rule_index].text[0] != '\0') {
+            active[rule_index] = true;
         }
     }
 
@@ -3368,7 +3114,10 @@ void RadarApp::update_notification_banner(const aircraft_data_t *snapshot, size_
         }
 
         const notification_setting_t *notification = &settings.notifications[rule_index];
-        lv_label_set_text(label, notification->text);
+        const char *current_text = lv_label_get_text(label);
+        if (!current_text || strcmp(current_text, notification->text) != 0) {
+            lv_label_set_text(label, notification->text);
+        }
         lv_obj_set_style_text_color(label, lv_color_hex(notification->color), 0);
         lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 42 + (visible_line * 20));
         lv_obj_clear_flag(label, LV_OBJ_FLAG_HIDDEN);
@@ -3448,6 +3197,7 @@ void RadarApp::refresh_static_ui_fonts()
     for (size_t i = 0; i < DATA_MENU_ROW_COUNT; ++i) {
         apply_label_font(data_menu_labels[i], settings.label_styles.button, -2);
     }
+    hardware_controls.refreshFonts();
 }
 
 /* Reapply settings-driven colours, widths, and redraw static UI layers. */
@@ -3562,6 +3312,7 @@ void RadarApp::refresh_static_ui_colors()
         }
     }
     refresh_data_menu();
+    hardware_controls.refreshColors();
 
     if (aircraft_popup) {
         lv_obj_set_style_bg_color(aircraft_popup, lv_color_hex(settings.colors.popup_bg), 0);
@@ -3678,6 +3429,7 @@ void RadarApp::update_aircraft_ui(lv_timer_t *timer)
     displayed_generation = generation;
     displayed_range_mi = range_mi;
     displayed_settings_generation = settings_generation;
+    build_aircraft_ui_state(snapshot, count, range_mi);
     if (range_index < MAX_RANGE_SETTINGS && settings.ranges[range_index].show_history_trail) {
         update_aircraft_track_history(snapshot, count, range_mi, generation);
     }
@@ -3786,9 +3538,29 @@ void RadarApp::clear_active_runway_cache(void)
 /* Ensure runway data has been cached for the selected airport centre. */
 void RadarApp::ensure_airport_runways_cached(void)
 {
+    if (!settings.show_airport_runways ||
+        settings.center_source != RADAR_CENTER_SOURCE_AIRPORT ||
+        settings.center_airport_code[0] == '\0') {
+        return;
+    }
+
+    char icao[5] = {};
+    if (!normalize_icao_code(icao, sizeof(icao), settings.center_airport_code)) {
+        return;
+    }
+
+    airport_runway_cache_t active = {};
+    if (!runway_service.getActiveCache(&active) || strcmp(active.icao, icao) != 0) {
+        update_oled_activity("RUNWAY FETCH");
+    }
+
     char origin[48];
     build_photo_origin(origin, sizeof(origin));
     runway_service.ensureCached(settings, http_client, origin, &settings_generation);
+
+    if (runway_service.getActiveCache(&active) && strcmp(active.icao, icao) == 0) {
+        update_oled_activity("RUNWAY %u OK", (unsigned)active.count);
+    }
 }
 
 /* Parse an aircraft altitude field into feet. */
@@ -4005,6 +3777,12 @@ void RadarApp::apply_settings(const radar_settings_t *candidate)
                            candidate->airport_weather_refresh_min != settings.airport_weather_refresh_min ||
                            candidate->airport_weather_icon_size != settings.airport_weather_icon_size ||
                            candidate->show_airports != settings.show_airports;
+    bool hardware_changed = candidate->hardware_oled_i2c_addr != settings.hardware_oled_i2c_addr ||
+                            candidate->hardware_confirm_gpio != settings.hardware_confirm_gpio ||
+                            candidate->hardware_back_gpio != settings.hardware_back_gpio ||
+                            candidate->hardware_rotary_a_gpio != settings.hardware_rotary_a_gpio ||
+                            candidate->hardware_rotary_b_gpio != settings.hardware_rotary_b_gpio ||
+                            candidate->hardware_rotary_push_gpio != settings.hardware_rotary_push_gpio;
     settings.apply(*candidate);
 
     size_t count = get_range_count();
@@ -4023,6 +3801,10 @@ void RadarApp::apply_settings(const radar_settings_t *candidate)
     settings_generation++;
     if (weather_changed) {
         airport_weather_last_fetch_ms = 0;
+    }
+    if (hardware_changed) {
+        oled_status.init((uint8_t)settings.hardware_oled_i2c_addr);
+        hardware_controls.initInputs();
     }
     if (wifi_event_group) {
         xEventGroupSetBits(wifi_event_group, FETCH_NOW_BIT);
@@ -4360,13 +4142,17 @@ void RadarApp::refresh_airport_weather()
             airport_weather_count = 0;
             xSemaphoreGive(airport_weather_mutex);
         }
+        update_oled_activity("WEATHER OFF");
         return;
     }
 
     EventBits_t bits = wifi_event_group ? xEventGroupGetBits(wifi_event_group) : 0;
     if ((bits & WIFI_CONNECTED_BIT) == 0) {
+        update_oled_activity("WEATHER NO WIFI");
         return;
     }
+
+    update_oled_activity("WEATHER CHECK");
 
     typedef struct {
         size_t index;
@@ -4408,6 +4194,7 @@ void RadarApp::refresh_airport_weather()
             airport_weather_last_fetch_ms = esp_timer_get_time() / 1000LL;
             xSemaphoreGive(airport_weather_mutex);
         }
+        update_oled_activity("WEATHER NONE");
         return;
     }
 
@@ -4426,6 +4213,7 @@ void RadarApp::refresh_airport_weather()
     }
     if (used <= 0 || used >= (int)sizeof(url)) {
         ESP_LOGW(TAG, "Airport weather request too large for %u airports", (unsigned)visible_count);
+        update_oled_activity("WEATHER TOO BIG");
         return;
     }
     snprintf(url + used, sizeof(url) - (size_t)used,
@@ -4433,16 +4221,19 @@ void RadarApp::refresh_airport_weather()
 
     char *response = nullptr;
     int response_len = 0;
+    update_oled_activity("WEATHER FETCH");
     esp_err_t err = http_client.fetchBuffer(url, "application/json", nullptr,
                                             4096, 64 * 1024, &response, &response_len,
                                             0, PHOTO_OPTIONAL_HTTP_TIMEOUT_MS);
     if (err != ESP_OK || !response) {
+        update_oled_activity("WEATHER ERR");
         return;
     }
 
     cJSON *root = cJSON_ParseWithLength(response, response_len);
     heap_caps_free(response);
     if (!root) {
+        update_oled_activity("WEATHER JSON ERR");
         return;
     }
 
@@ -4495,6 +4286,9 @@ void RadarApp::refresh_airport_weather()
     if (fetched_count > 0) {
         ++settings_generation;
         ESP_LOGI(TAG, "Updated airport weather for %u airports", (unsigned)fetched_count);
+        update_oled_activity("WEATHER %u OK", (unsigned)fetched_count);
+    } else {
+        update_oled_activity("WEATHER NONE");
     }
 }
 
@@ -4721,65 +4515,6 @@ void RadarApp::create_data_menu(lv_obj_t *screen)
     refresh_data_menu();
 }
 
-/* Create the physical-control menu overlay used by buttons and rotary encoder. */
-void RadarApp::create_hardware_menu(lv_obj_t *screen)
-{
-    hardware_menu = lv_obj_create(screen);
-    lv_obj_set_size(hardware_menu, 440, 560);
-    lv_obj_set_pos(hardware_menu, (SCREEN_W - 440) / 2, 72);
-    lv_obj_set_style_bg_color(hardware_menu, lv_color_hex(settings.colors.popup_bg), 0);
-    lv_obj_set_style_bg_opa(hardware_menu, LV_OPA_90, 0);
-    lv_obj_set_style_border_color(hardware_menu, lv_color_hex(settings.colors.popup_border), 0);
-    lv_obj_set_style_border_width(hardware_menu, 2, 0);
-    lv_obj_set_style_radius(hardware_menu, 10, 0);
-    lv_obj_set_style_pad_all(hardware_menu, 16, 0);
-    lv_obj_clear_flag(hardware_menu, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(hardware_menu, LV_OBJ_FLAG_HIDDEN);
-
-    hardware_menu_title = make_label(hardware_menu, "DISPLAY MENU",
-                                     configured_label_font(settings.label_styles.button),
-                                     settings.colors.button_text);
-    lv_obj_set_pos(hardware_menu_title, 0, 8);
-    lv_obj_set_width(hardware_menu_title, 408);
-    lv_obj_set_style_text_align(hardware_menu_title, LV_TEXT_ALIGN_CENTER, 0);
-
-    for (int i = 0; i < HW_MENU_ITEM_COUNT; ++i) {
-        lv_obj_t *row = lv_obj_create(hardware_menu);
-        lv_obj_set_size(row, 392, 38);
-        lv_obj_set_pos(row, 8, 50 + (i * 42));
-        lv_obj_set_style_bg_color(row, lv_color_hex(settings.colors.button_pressed), 0);
-        lv_obj_set_style_bg_opa(row, LV_OPA_20, 0);
-        lv_obj_set_style_border_color(row, lv_color_hex(settings.colors.popup_border), 0);
-        lv_obj_set_style_border_width(row, 1, 0);
-        lv_obj_set_style_radius(row, 6, 0);
-        lv_obj_set_style_pad_all(row, 0, 0);
-        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-
-        hardware_menu_labels[i] = make_label(row, "",
-                                             configured_label_font(settings.label_styles.button, -2),
-                                             settings.colors.text_primary);
-        lv_obj_set_pos(hardware_menu_labels[i], 12, 8);
-        lv_obj_set_width(hardware_menu_labels[i], 210);
-
-        hardware_menu_values[i] = make_label(row, "",
-                                             configured_label_font(settings.label_styles.button, -2),
-                                             settings.colors.button_status);
-        lv_obj_set_pos(hardware_menu_values[i], 226, 8);
-        lv_obj_set_width(hardware_menu_values[i], 150);
-        lv_obj_set_style_text_align(hardware_menu_values[i], LV_TEXT_ALIGN_RIGHT, 0);
-
-        hardware_menu_rows[i] = row;
-    }
-
-    hardware_menu_help = make_label(hardware_menu, "",
-                                    configured_label_font(settings.label_styles.gps, -2),
-                                    settings.colors.text_secondary);
-    lv_obj_set_pos(hardware_menu_help, 8, 502);
-    lv_obj_set_width(hardware_menu_help, 392);
-    lv_obj_set_style_text_align(hardware_menu_help, LV_TEXT_ALIGN_CENTER, 0);
-    refresh_hardware_menu();
-}
-
 /* Build the full radar LVGL scene, controls, popups, overlays, and timers. */
 void RadarApp::create_radar_ui(void)
 {
@@ -4910,14 +4645,14 @@ void RadarApp::create_radar_ui(void)
     create_range_menu(screen);
     create_wifi_menu(screen);
     create_data_menu(screen);
-    create_hardware_menu(screen);
+    hardware_controls.createMenu(screen);
     create_portal_overlay(screen);
 
     refresh_range_label();
     bsp_display_brightness_set(DEFAULT_BRIGHTNESS);
 
     lv_timer_create(RadarApp::sweep_timer_entry, SWEEP_TIMER_MS, NULL);
-    lv_timer_create(RadarApp::rotary_timer_entry, ROTARY_POLL_MS, NULL);
+    lv_timer_create(HardwareControlService::timerEntry, ROTARY_POLL_MS, &hardware_controls);
     lv_timer_create(RadarApp::update_aircraft_ui_entry, 1000, NULL);
     sweep_timer_cb(NULL);
 }
@@ -4939,6 +4674,7 @@ void RadarApp::run()
     route_service.bind(this);
     popup_controller.bind(this);
     curved_button_controller.bind(this);
+    hardware_controls.bind(this);
     ESP_LOGI(TAG, "Starting Radar Console");
 
     aircraft_mutex = xSemaphoreCreateMutex();
@@ -4963,8 +4699,8 @@ void RadarApp::run()
 
     bsp_display_start_with_config(&cfg);
     bsp_display_backlight_on();
-    oled_status.init();
-    init_rotary_inputs();
+    oled_status.init((uint8_t)settings.hardware_oled_i2c_addr);
+    hardware_controls.initInputs();
 
     bsp_display_lock((uint32_t)-1);
     create_radar_ui();

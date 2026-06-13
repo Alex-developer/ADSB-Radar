@@ -660,6 +660,12 @@ void RadarSettings::setDefaults()
     hardware_push_action = RADAR_HW_BUTTON_MENU_SELECT;
     hardware_menu_timeout_sec = 15;
     hardware_show_hints = true;
+    hardware_oled_i2c_addr = 0x3c;
+    hardware_confirm_gpio = 30;
+    hardware_back_gpio = 46;
+    hardware_rotary_a_gpio = 47;
+    hardware_rotary_b_gpio = 52;
+    hardware_rotary_push_gpio = 48;
     snprintf(aircraft_local_url, sizeof(aircraft_local_url), "%s", "");
     set_default_colors(&colors);
     set_default_altitude_colors(&altitude_colors);
@@ -769,7 +775,19 @@ bool RadarSettings::isValid(const radar_settings_t &candidate)
         candidate.aircraft_heading_style < RADAR_HEADING_STYLE_NONE ||
         candidate.aircraft_heading_style > RADAR_HEADING_STYLE_LINE ||
         candidate.ground_speed_kt < 0 ||
-        candidate.ground_speed_kt > RADAR_SETTINGS_MAX_GROUND_SPEED_KT) {
+        candidate.ground_speed_kt > RADAR_SETTINGS_MAX_GROUND_SPEED_KT ||
+        candidate.hardware_oled_i2c_addr < 0x03 ||
+        candidate.hardware_oled_i2c_addr > 0x77 ||
+        candidate.hardware_confirm_gpio < 0 ||
+        candidate.hardware_confirm_gpio > 63 ||
+        candidate.hardware_back_gpio < 0 ||
+        candidate.hardware_back_gpio > 63 ||
+        candidate.hardware_rotary_a_gpio < 0 ||
+        candidate.hardware_rotary_a_gpio > 63 ||
+        candidate.hardware_rotary_b_gpio < 0 ||
+        candidate.hardware_rotary_b_gpio > 63 ||
+        candidate.hardware_rotary_push_gpio < 0 ||
+        candidate.hardware_rotary_push_gpio > 63) {
         return false;
     }
 
@@ -1053,6 +1071,18 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
                 clamp_int(parse_int_item(hardware, "menuTimeoutSec", candidate->hardware_menu_timeout_sec), 3, 120);
             candidate->hardware_show_hints =
                 parse_bool_item(hardware, "showHints", candidate->hardware_show_hints);
+            candidate->hardware_oled_i2c_addr =
+                clamp_int(parse_int_item(hardware, "oledI2cAddr", candidate->hardware_oled_i2c_addr), 0x03, 0x77);
+            candidate->hardware_confirm_gpio =
+                clamp_int(parse_int_item(hardware, "confirmGpio", candidate->hardware_confirm_gpio), 0, 63);
+            candidate->hardware_back_gpio =
+                clamp_int(parse_int_item(hardware, "backGpio", candidate->hardware_back_gpio), 0, 63);
+            candidate->hardware_rotary_a_gpio =
+                clamp_int(parse_int_item(hardware, "rotaryAGpio", candidate->hardware_rotary_a_gpio), 0, 63);
+            candidate->hardware_rotary_b_gpio =
+                clamp_int(parse_int_item(hardware, "rotaryBGpio", candidate->hardware_rotary_b_gpio), 0, 63);
+            candidate->hardware_rotary_push_gpio =
+                clamp_int(parse_int_item(hardware, "rotaryPushGpio", candidate->hardware_rotary_push_gpio), 0, 63);
         }
     }
 
@@ -1233,6 +1263,12 @@ char *RadarSettings::toJson(const char *wifi_ssid) const
     cJSON_AddStringToObject(hardware, "pushAction", hardware_button_action_name(hardware_push_action));
     cJSON_AddNumberToObject(hardware, "menuTimeoutSec", hardware_menu_timeout_sec);
     cJSON_AddBoolToObject(hardware, "showHints", hardware_show_hints);
+    cJSON_AddNumberToObject(hardware, "oledI2cAddr", hardware_oled_i2c_addr);
+    cJSON_AddNumberToObject(hardware, "confirmGpio", hardware_confirm_gpio);
+    cJSON_AddNumberToObject(hardware, "backGpio", hardware_back_gpio);
+    cJSON_AddNumberToObject(hardware, "rotaryAGpio", hardware_rotary_a_gpio);
+    cJSON_AddNumberToObject(hardware, "rotaryBGpio", hardware_rotary_b_gpio);
+    cJSON_AddNumberToObject(hardware, "rotaryPushGpio", hardware_rotary_push_gpio);
 
     add_color_settings_json(root, &colors);
     add_altitude_color_settings_json(root, &altitude_colors);

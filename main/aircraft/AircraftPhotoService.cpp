@@ -150,7 +150,11 @@ bool AircraftPhotoService::requestIsCurrent(uint32_t request_id) const
 /* Update popup photo status from the worker task under the LVGL display lock. */
 void AircraftPhotoService::updateStatusFromTask(uint32_t request_id, const char *status)
 {
-    if (!owner || bsp_display_lock(1000) != ESP_OK) {
+    if (!owner) {
+        return;
+    }
+    owner->update_oled_activity("%s", status && status[0] ? status : "PHOTO OK");
+    if (bsp_display_lock(1000) != ESP_OK) {
         return;
     }
 
@@ -189,6 +193,7 @@ void AircraftPhotoService::installFromTask(uint32_t request_id,
             lv_image_set_src(owner->aircraft_photo_image, &owner->aircraft_photo_dsc);
             lv_obj_clear_flag(owner->aircraft_photo_image, LV_OBJ_FLAG_HIDDEN);
             owner->set_aircraft_photo_status_text("");
+            owner->update_oled_activity("PHOTO OK");
             ESP_LOGI(TAG, "Installed aircraft photo: %ux%u %u bytes",
                      (unsigned)owner->aircraft_photo_dsc.header.w,
                      (unsigned)owner->aircraft_photo_dsc.header.h,
@@ -310,6 +315,7 @@ void AircraftPhotoService::startFetch(const char *icao)
     request->request_id = owner->aircraft_photo_request_id;
     owner->aircraft_photo_fetch_running = true;
     owner->set_aircraft_photo_status_text("PHOTO FETCH");
+    owner->update_oled_activity("PHOTO FETCH");
 
     if (xTaskCreateWithCaps(RadarApp::aircraft_photo_fetch_task_entry, "aircraft_photo",
                             PHOTO_TASK_STACK, request, PHOTO_TASK_PRIORITY, NULL,
@@ -317,5 +323,6 @@ void AircraftPhotoService::startFetch(const char *icao)
         owner->aircraft_photo_fetch_running = false;
         heap_caps_free(request);
         owner->set_aircraft_photo_status_text("PHOTO ERR");
+        owner->update_oled_activity("PHOTO ERR");
     }
 }

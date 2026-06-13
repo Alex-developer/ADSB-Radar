@@ -166,7 +166,11 @@ bool AircraftRouteService::requestIsCurrent(uint32_t request_id) const
 /* Update the popup body with route text under the LVGL display lock. */
 void AircraftRouteService::updateRouteFromTask(uint32_t request_id, const char *route_text)
 {
-    if (!owner || bsp_display_lock(1000) != ESP_OK) {
+    if (!owner) {
+        return;
+    }
+    owner->update_oled_activity("%s", route_text && route_text[0] ? route_text : "ROUTE NONE");
+    if (bsp_display_lock(1000) != ESP_OK) {
         return;
     }
 

@@ -81,23 +81,22 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .range-list{display:flex;flex-direction:column;gap:1rem}
     .notification-list{display:flex;flex-direction:column;gap:1rem}
     .range-row,.notify-row{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-left:4px solid var(--ag-primary);border-radius:.45rem;padding:1rem;box-shadow:var(--ag-card-shadow)}
-    .range-row{display:flex;flex-direction:column;gap:1rem}
+    .range-row,.notify-row{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(0,2.2fr);gap:1rem;align-items:center}
     .range-row .editor-card-head,.notify-row .editor-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;border-bottom:1px solid #edf0f2;padding-bottom:.75rem}
+    .range-row .editor-card-head,.notify-row .editor-card-head{border-bottom:0;padding-bottom:0;min-width:0}
     .editor-card-title{display:flex;align-items:flex-start;gap:.75rem}
     .editor-card-icon{width:2.4rem;height:2.4rem;border-radius:.35rem;display:grid;place-items:center;background:#eef5ff;color:var(--ag-primary);font-size:1.15rem;flex:0 0 auto}
     .editor-card-title h3{font-size:1rem;margin:0;color:var(--ag-heading);font-weight:600}
     .editor-card-title p{margin:0;color:var(--ag-muted);line-height:1.45}
-    .range-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:end}
-    .range-field-card{background:var(--ag-panel);border:1px solid var(--ag-line);border-radius:.4rem;padding:.85rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
-    .range-field-card .form-label{display:flex;align-items:center;gap:.45rem;color:#495057}
-    .range-field-card .form-label i{color:var(--ag-primary)}
-    .notify-row{display:flex;flex-direction:column;gap:1rem}
-    .notify-row .form-switch{padding:.25rem 0 .25rem 2.75rem;background:transparent;border:0;min-height:auto}
-    .notify-row .form-switch .form-check-input{margin-left:-2.75rem}
-    .notify-switches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
-    .notify-switches .form-switch{border:1px solid #edf0f2!important;border-radius:.35rem!important;background:#fbfcfe!important;padding:.8rem .9rem .8rem 3.2rem!important;min-height:54px!important;display:flex;align-items:center}
-    .notify-switches .form-switch .form-check-input{margin-left:-2.35rem!important}
-    .notify-switches .form-check-label{line-height:1.25;padding-left:.15rem}
+    .range-fields{display:grid;grid-template-columns:minmax(130px,1fr) minmax(130px,1fr) minmax(115px,.8fr) minmax(170px,1.1fr);gap:.75rem;align-items:end}
+    .notify-fields{display:grid;grid-template-columns:minmax(82px,.55fr) minmax(82px,.55fr) minmax(108px,.7fr) minmax(130px,1fr) minmax(190px,1.5fr) minmax(78px,.5fr);gap:.75rem;align-items:end}
+    .range-field-card,.notify-field-card{background:var(--ag-panel);border:1px solid var(--ag-line);border-radius:.4rem;padding:.65rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.55);min-width:0}
+    .range-field-card .form-label,.notify-field-card .form-label{display:flex;align-items:center;gap:.45rem;color:#495057;white-space:nowrap}
+    .range-field-card .form-label i,.notify-field-card .form-label i{color:var(--ag-primary)}
+    .display-card .form-label i{margin-right:.45rem;color:var(--ag-primary)}
+    .range-field-card .form-text,.notify-field-card .form-text{display:none}
+    .range-field-card .form-check.form-switch,.notify-field-card .form-check.form-switch{border:0;background:transparent;padding:.2rem 0 0;min-height:38px}
+    .range-field-card .form-switch .form-check-input,.notify-field-card .form-switch .form-check-input{margin-left:0}
     .dashboard-panel{background:#fff;border:1px solid #dee2e6;border-top:0;border-radius:0 0 .25rem .25rem;padding:1rem}
     .dashboard-section{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-radius:.45rem;padding:1rem;box-shadow:var(--ag-card-shadow);height:100%}
     .dashboard-section h2{font-size:1rem;font-weight:600;color:var(--ag-heading)}
@@ -182,12 +181,12 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .btn{border-radius:.25rem;font-weight:500;min-height:38px}.btn-primary{background:var(--ag-primary);border-color:var(--ag-primary)}.btn-primary:hover,.btn-primary:focus{background:var(--ag-primary-dark);border-color:var(--ag-primary-dark)}.btn-outline-primary{color:var(--ag-primary);border-color:var(--ag-primary)}.btn-outline-primary:hover{background:var(--ag-primary);border-color:var(--ag-primary)}.btn-outline-secondary{border-color:#ced4da;color:#495057}.btn-outline-secondary:hover{background:#f8f9fa;border-color:#adb5bd;color:#212529}
     .badge{font-weight:600}
     html[data-theme=dark] .app-header,html[data-theme=dark] .settings-layout-card,html[data-theme=dark] .settings-card,html[data-theme=dark] .tab-pane>.section-title,html[data-theme=dark] .editor-intro,html[data-theme=dark] .range-row,html[data-theme=dark] .notify-row,html[data-theme=dark] .dashboard-panel,html[data-theme=dark] .dashboard-section,html[data-theme=dark] .dashboard-mini-card,html[data-theme=dark] .style-group,html[data-theme=dark] .style-tab-content,html[data-theme=dark] .display-card,html[data-theme=dark] .metric-card,html[data-theme=dark] .location-panel,html[data-theme=dark] .location-source,html[data-theme=dark] .data-source-card,html[data-theme=dark] .service-card{background:var(--ag-card);border-color:var(--ag-line);color:var(--ag-text)}
-    html[data-theme=dark] .status-card,html[data-theme=dark] .range-field-card,html[data-theme=dark] .notify-switches .form-switch,html[data-theme=dark] .source-helper,html[data-theme=dark] .map-readout,html[data-theme=dark] .screenshot-loading-box,html[data-theme=dark] .ajax-loading-box{background:var(--ag-subtle)!important;border-color:var(--ag-line)!important;color:var(--ag-text)}
+    html[data-theme=dark] .status-card,html[data-theme=dark] .range-field-card,html[data-theme=dark] .notify-field-card,html[data-theme=dark] .source-helper,html[data-theme=dark] .map-readout,html[data-theme=dark] .screenshot-loading-box,html[data-theme=dark] .ajax-loading-box{background:var(--ag-subtle)!important;border-color:var(--ag-line)!important;color:var(--ag-text)}
     html[data-theme=dark] .settings-card,html[data-theme=dark] .settings-card{border-color:var(--ag-line)}
     html[data-theme=dark] .range-row .editor-card-head,html[data-theme=dark] .notify-row .editor-card-head,html[data-theme=dark] .tab-pane>.section-title,html[data-theme=dark] .style-row,html[data-theme=dark] .app-header{border-color:var(--ag-line)!important}
     html[data-theme=dark] .brand-title,html[data-theme=dark] .page-title,html[data-theme=dark] .section-title h2,html[data-theme=dark] .editor-intro h3,html[data-theme=dark] .editor-card-title h3,html[data-theme=dark] .dashboard-section h2,html[data-theme=dark] .display-card-head h3,html[data-theme=dark] .location-source h3,html[data-theme=dark] .data-source-card h3,html[data-theme=dark] .service-card h3,html[data-theme=dark] .metric-value,html[data-theme=dark] .h5{color:var(--ag-heading)!important}
     html[data-theme=dark] .text-muted,html[data-theme=dark] .brand-copy,html[data-theme=dark] .section-title p,html[data-theme=dark] .editor-intro p,html[data-theme=dark] .editor-card-title p,html[data-theme=dark] .display-card-head p,html[data-theme=dark] .location-source p,html[data-theme=dark] .data-source-card p,html[data-theme=dark] .form-text,html[data-theme=dark] .small-label{color:var(--ag-muted)!important}
-    html[data-theme=dark] .form-label,html[data-theme=dark] .range-field-card .form-label{color:var(--ag-text)}
+    html[data-theme=dark] .form-label,html[data-theme=dark] .range-field-card .form-label,html[data-theme=dark] .notify-field-card .form-label{color:var(--ag-text)}
     html[data-theme=dark] .form-control,html[data-theme=dark] .form-select,html[data-theme=dark] .input-group-text,html[data-theme=dark] textarea{background-color:var(--ag-input);border-color:var(--ag-input-border);color:var(--ag-heading)}
     html[data-theme=dark] .form-control::placeholder{color:#64748b}
     html[data-theme=dark] .form-control:disabled,html[data-theme=dark] .form-select:disabled{background-color:#111827;color:#64748b}
@@ -214,7 +213,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     html[data-theme=dark] .screenshot-loading,html[data-theme=dark] .ajax-loading{background:rgba(15,23,42,.82)}
     html[data-theme=dark] .dt-container .dt-input{background-color:var(--ag-input);border-color:var(--ag-input-border);color:var(--ag-heading)}
     @media (max-width:1199.98px){.sidebar-col{width:76px;flex-basis:76px}.content-col{width:calc(100% - 76px);flex-basis:calc(100% - 76px)}.nav-card .card-header{padding:1rem .65rem}.nav-brand{justify-content:center;margin-bottom:0}.nav-brand span,.nav-card .small-label,.nav-pills .nav-label{display:none}.nav-pills .nav-link{justify-content:center;padding:.85rem .5rem}.nav-pills .nav-link.active{box-shadow:inset 0 0 0 1px rgba(59,125,221,.55)}.nav-pills .nav-icon{font-size:1.2rem}}
-    @media (max-width:991.98px){html,body{height:auto;min-height:100%;overflow:auto}.nav-card{min-height:100vh;border-radius:0}.content-wrap{height:auto;min-height:calc(100vh - 64px);padding:1rem;overflow:visible}.settings-layout-card{height:auto}.settings-card{height:auto}.settings-card>.tab-pane{height:auto;max-height:none}.brand-logo{width:34px;height:34px}.brand-logo svg{width:29px;height:29px}.settings-card{border-left:1px solid #edf0f2;border-top:0}#locationMap{height:420px}.location-source-grid,.data-source-grid,.editor-grid,.notify-switches,.range-fields{grid-template-columns:1fr}}
+    @media (max-width:991.98px){html,body{height:auto;min-height:100%;overflow:auto}.nav-card{min-height:100vh;border-radius:0}.content-wrap{height:auto;min-height:calc(100vh - 64px);padding:1rem;overflow:visible}.settings-layout-card{height:auto}.settings-card{height:auto}.settings-card>.tab-pane{height:auto;max-height:none}.brand-logo{width:34px;height:34px}.brand-logo svg{width:29px;height:29px}.settings-card{border-left:1px solid #edf0f2;border-top:0}#locationMap{height:420px}.range-row,.notify-row,.location-source-grid,.data-source-grid,.editor-grid,.range-fields,.notify-fields{grid-template-columns:1fr}}
     @media (max-width:575.98px){.sidebar-col{width:62px;flex-basis:62px}.content-col{width:calc(100% - 62px);flex-basis:calc(100% - 62px)}.nav-card .card-header{padding:.75rem .45rem}.nav-card .card-body{padding:.35rem!important}.nav-pills .nav-link{padding:.75rem .35rem}.settings-card>.tab-pane{padding:1rem}.app-header{border-radius:0}}
   </style>
 </head>
@@ -246,6 +245,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#general" type="button" title="Location"><i class="bi bi-geo-alt nav-icon" aria-hidden="true"></i><span class="nav-label">Location</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#apiKeys" type="button" title="Data Sources"><i class="bi bi-database nav-icon" aria-hidden="true"></i><span class="nav-label">Data Sources</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#colours" type="button" title="Display"><i class="bi bi-palette nav-icon" aria-hidden="true"></i><span class="nav-label">Display</span></button></li>
+            <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#hardwareControl" type="button" title="Hardware Control"><i class="bi bi-cpu nav-icon" aria-hidden="true"></i><span class="nav-label">Hardware Control</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#notifications" type="button" title="Notifications"><i class="bi bi-bell nav-icon" aria-hidden="true"></i><span class="nav-label">Notifications</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#ranges" type="button" title="Ranges"><i class="bi bi-broadcast-pin nav-icon" aria-hidden="true"></i><span class="nav-label">Ranges</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#wifi" type="button" title="WiFi"><i class="bi bi-wifi nav-icon" aria-hidden="true"></i><span class="nav-label">WiFi</span></button></li>
@@ -493,6 +493,16 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
         </div>
       </div>
       <div id="styleGroups"></div>
+    </section>
+    <section class="tab-pane fade" id="hardwareControl">
+      <div class="section-title">
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-cpu"></i></div>
+          <div><h2>Hardware Control</h2><p>Configure the optional OLED status display, buttons, rotary encoder pins, and on-device menu actions.</p></div>
+        </div>
+        <div class="section-actions"><button class="btn btn-primary save-settings">Save Hardware</button></div>
+      </div>
+      <div id="hardwareControlsContent"></div>
     </section>
     <section class="tab-pane fade" id="notifications">
       <div class="section-title">
@@ -1095,21 +1105,6 @@ function renderStyleGroups(data){
             </div>
           </div>
         </div>
-        <div class="col-12">
-          <div class="display-card">
-            <div class="display-card-head"><div class="editor-card-icon"><i class="bi bi-sliders"></i></div><div><h3>Physical controls</h3><p>Choose how the confirm, back, rotary and push controls operate on the radar.</p></div></div>
-            <div class="row g-3">
-              <div class="col-md-4 form-check form-switch"><input id="hardwareControlsEnabled" class="form-check-input" type="checkbox"><label class="form-check-label" for="hardwareControlsEnabled">Enable hardware controls</label></div>
-              <div class="col-md-4 form-check form-switch"><input id="hardwareShowHints" class="form-check-input" type="checkbox"><label class="form-check-label" for="hardwareShowHints">Show menu hints</label></div>
-              <div class="col-md-4"><label class="form-label" for="hardwareMenuTimeoutSec">Menu timeout</label><div class="input-group"><input id="hardwareMenuTimeoutSec" class="form-control" type="number" min="3" max="120"><span class="input-group-text">s</span></div></div>
-              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareRotaryAction">Rotary when menu closed</label><select id="hardwareRotaryAction" class="form-select"><option value="range">Change range</option><option value="menu">Open menu</option></select></div>
-              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareConfirmAction">Confirm button</label><select id="hardwareConfirmAction" class="form-select hardware-action-select"></select></div>
-              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareBackAction">Back button</label><select id="hardwareBackAction" class="form-select hardware-action-select"></select></div>
-              <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwarePushAction">Encoder push</label><select id="hardwarePushAction" class="form-select hardware-action-select"></select></div>
-              <div class="col-12"><div class="form-text">The on-device menu includes range, aircraft filter, heading, airports, countries, runways, ground aircraft, sweep, WiFi setup and reboot.</div></div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>`);
@@ -1129,26 +1124,6 @@ function renderStyleGroups(data){
   if(headingMode==='heading'||headingMode==='vertical') headingMode='arrow';
   $('#headingMode',content).val(headingMode);
   $('#showClimbDescent',content).prop('checked',!!data.interface.showClimbDescent);
-  const hardwareActions=[
-    ['menuSelect','Open menu / select'],
-    ['back','Back / close'],
-    ['rangeUp','Range up'],
-    ['rangeDown','Range down'],
-    ['dataMenu','Open DATA menu'],
-    ['wifiMenu','Open WiFi menu'],
-    ['none','Do nothing']
-  ];
-  $('.hardware-action-select',content).each(function(){
-    $(this).html(hardwareActions.map(a=>`<option value="${a[0]}">${a[1]}</option>`).join(''));
-  });
-  let hw=(data.interface&&data.interface.hardware)||{};
-  $('#hardwareControlsEnabled',content).prop('checked',hw.enabled!==false);
-  $('#hardwareShowHints',content).prop('checked',hw.showHints!==false);
-  $('#hardwareMenuTimeoutSec',content).val(hw.menuTimeoutSec ?? 15);
-  $('#hardwareRotaryAction',content).val(hw.rotaryAction||'range');
-  $('#hardwareConfirmAction',content).val(hw.confirmAction||'menuSelect');
-  $('#hardwareBackAction',content).val(hw.backAction||'back');
-  $('#hardwarePushAction',content).val(hw.pushAction||'menuSelect');
   $('#sweepStepDeg',content).val(data.interface.sweepStepDeg ?? 5);
   $('#sweepDrawIntervalMs',content).val(data.interface.sweepDrawIntervalMs ?? 50);
   $('#showSweepTrail',content).prop('checked',data.interface.showSweepTrail!==false);
@@ -1169,10 +1144,72 @@ function renderStyleGroups(data){
   });
   root.append(tabs,content);
 }
+	// Render the dedicated hardware-control settings page.
+function renderHardwareControls(data){
+  const hardwareActions=[
+    ['menuSelect','Open menu / select'],
+    ['back','Back / close'],
+    ['rangeUp','Range up'],
+    ['rangeDown','Range down'],
+    ['dataMenu','Open DATA menu'],
+    ['wifiMenu','Open WiFi menu'],
+    ['none','Do nothing']
+  ];
+  const formatI2cAddress=v=>'0x'+Number(v??0x3c).toString(16).padStart(2,'0');
+  let content=$('#hardwareControlsContent').html(`<ul class="nav style-tabs flex-nowrap overflow-auto" id="hardwareTabs" role="tablist">
+    <li class="nav-item" role="presentation"><button class="nav-link active" id="hardware-tab-ssd1306" data-bs-toggle="tab" data-bs-target="#hardware-pane-ssd1306" type="button" role="tab" aria-controls="hardware-pane-ssd1306" aria-selected="true">SSD1306 Module</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" id="hardware-tab-st7789t3" data-bs-toggle="tab" data-bs-target="#hardware-pane-st7789t3" type="button" role="tab" aria-controls="hardware-pane-st7789t3" aria-selected="false">ST7789T3</button></li>
+  </ul>
+  <div class="tab-content style-tab-content" id="hardwareTabContent">
+    <div class="tab-pane fade show active" id="hardware-pane-ssd1306" role="tabpanel" aria-labelledby="hardware-tab-ssd1306" tabindex="0">
+      <div class="display-card">
+        <div class="display-card-head"><div class="editor-card-icon"><i class="bi bi-display"></i></div><div><h3>SSD1306 Module</h3><p>Configure the optional OLED status display, buttons, rotary encoder pins, and on-device menu actions.</p></div></div>
+        <div class="row g-3">
+          <div class="col-md-4"><label class="form-label" for="hardwareControlsEnabled"><i class="bi bi-power"></i>Enable hardware controls</label><div class="form-check form-switch mb-0"><input id="hardwareControlsEnabled" class="form-check-input" type="checkbox"></div></div>
+          <div class="col-md-4"><label class="form-label" for="hardwareShowHints"><i class="bi bi-info-circle"></i>Show menu hints</label><div class="form-check form-switch mb-0"><input id="hardwareShowHints" class="form-check-input" type="checkbox"></div></div>
+          <div class="col-md-4"><label class="form-label" for="hardwareMenuTimeoutSec"><i class="bi bi-hourglass-split"></i>Menu timeout</label><div class="input-group"><input id="hardwareMenuTimeoutSec" class="form-control" type="number" min="3" max="120"><span class="input-group-text">s</span></div></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareOledI2cAddr"><i class="bi bi-display"></i>OLED I2C address</label><input id="hardwareOledI2cAddr" class="form-control" type="text" inputmode="text" placeholder="0x3c"></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareConfirmGpio"><i class="bi bi-check-circle"></i>Confirm GPIO</label><input id="hardwareConfirmGpio" class="form-control" type="number" min="0" max="63"></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareBackGpio"><i class="bi bi-arrow-left-circle"></i>Back GPIO</label><input id="hardwareBackGpio" class="form-control" type="number" min="0" max="63"></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareRotaryPushGpio"><i class="bi bi-record-circle"></i>Encoder push GPIO</label><input id="hardwareRotaryPushGpio" class="form-control" type="number" min="0" max="63"></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareRotaryAGpio"><i class="bi bi-arrow-clockwise"></i>Encoder A / CLK GPIO</label><input id="hardwareRotaryAGpio" class="form-control" type="number" min="0" max="63"></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareRotaryBGpio"><i class="bi bi-arrow-counterclockwise"></i>Encoder B / DATA GPIO</label><input id="hardwareRotaryBGpio" class="form-control" type="number" min="0" max="63"></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareRotaryAction"><i class="bi bi-arrow-left-right"></i>Rotary when menu closed</label><select id="hardwareRotaryAction" class="form-select"><option value="range">Change range</option><option value="menu">Open menu</option></select></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareConfirmAction"><i class="bi bi-check2-square"></i>Confirm button</label><select id="hardwareConfirmAction" class="form-select hardware-action-select"></select></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwareBackAction"><i class="bi bi-box-arrow-left"></i>Back button</label><select id="hardwareBackAction" class="form-select hardware-action-select"></select></div>
+          <div class="col-lg-3 col-md-6"><label class="form-label" for="hardwarePushAction"><i class="bi bi-toggle-on"></i>Encoder push</label><select id="hardwarePushAction" class="form-select hardware-action-select"></select></div>
+          <div class="col-12"><div class="form-text">The on-device menu includes range, aircraft filter, heading, airports, countries, runways, ground aircraft, sweep, WiFi setup and reboot.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="hardware-pane-st7789t3" role="tabpanel" aria-labelledby="hardware-tab-st7789t3" tabindex="0">
+      <div class="display-card">
+        <div class="display-card-head"><div class="editor-card-icon"><i class="bi bi-display-fill"></i></div><div><h3>ST7789T3</h3><p>Hardware options for this module will be added here.</p></div></div>
+      </div>
+    </div>
+  </div>`);
+  $('.hardware-action-select',content).each(function(){
+    $(this).html(hardwareActions.map(a=>`<option value="${a[0]}">${a[1]}</option>`).join(''));
+  });
+  let hw=(data.interface&&data.interface.hardware)||{};
+  $('#hardwareControlsEnabled',content).prop('checked',hw.enabled!==false);
+  $('#hardwareShowHints',content).prop('checked',hw.showHints!==false);
+  $('#hardwareMenuTimeoutSec',content).val(hw.menuTimeoutSec ?? 15);
+  $('#hardwareOledI2cAddr',content).val(formatI2cAddress(hw.oledI2cAddr ?? 0x3c));
+  $('#hardwareConfirmGpio',content).val(hw.confirmGpio ?? 30);
+  $('#hardwareBackGpio',content).val(hw.backGpio ?? 46);
+  $('#hardwareRotaryAGpio',content).val(hw.rotaryAGpio ?? 47);
+  $('#hardwareRotaryBGpio',content).val(hw.rotaryBGpio ?? 52);
+  $('#hardwareRotaryPushGpio',content).val(hw.rotaryPushGpio ?? 48);
+  $('#hardwareRotaryAction',content).val(hw.rotaryAction||'range');
+  $('#hardwareConfirmAction',content).val(hw.confirmAction||'menuSelect');
+  $('#hardwareBackAction',content).val(hw.backAction||'back');
+  $('#hardwarePushAction',content).val(hw.pushAction||'menuSelect');
+}
 	// Build one range preset row.
-		function rangeRow(i,r){ r=r||{}; let miles=r.miles||'', history=!!r.historyTrail; return `<div class="range-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-broadcast"></i></div><div><h3>Range ${i+1}</h3><p>${miles?`${miles} mile preset with ${r.refresh||10} second refresh`:'Unused preset slot'}</p></div></div><span class="badge rounded-pill ${miles?'text-bg-primary':'text-bg-light text-muted'}">${miles?`${miles} MI`:'Unused'}</span></div><div class="range-fields"><div class="range-field-card"><label class="form-label"><i class="bi bi-bullseye"></i>Range distance</label><div class="input-group"><input class="form-control range-miles" type="number" min="0" max="250" value="${miles}"><span class="input-group-text">MI</span></div><div class="form-text">Set to 0 to leave this preset unused.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-arrow-clockwise"></i>Aircraft refresh</label><div class="input-group"><input class="form-control range-refresh" type="number" min="2" max="300" value="${r.refresh||10}"><span class="input-group-text">sec</span></div><div class="form-text">How often data is fetched at this range.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-tags"></i>Visible labels</label><input class="form-control range-labels" type="number" min="0" max="50" value="${r.labels??24}"><div class="form-text">Notification matches are still labelled.</div></div><div class="range-field-card"><div class="form-check form-switch"><input class="form-check-input range-history" type="checkbox" ${history?'checked':''}><label class="form-check-label">Aircraft history trail</label></div><div class="form-text">Show the last 10 received positions for aircraft at this range.</div></div></div></div>`; }
+		function rangeRow(i,r){ r=r||{}; let miles=r.miles||'', history=!!r.historyTrail; return `<div class="range-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-broadcast"></i></div><div><h3>Range ${i+1}</h3><p>${miles?`${miles} mile preset with ${r.refresh||10} second refresh`:'Unused preset slot'}</p></div></div><span class="badge rounded-pill ${miles?'text-bg-primary':'text-bg-light text-muted'}">${miles?`${miles} MI`:'Unused'}</span></div><div class="range-fields"><div class="range-field-card"><label class="form-label"><i class="bi bi-bullseye"></i>Range distance</label><div class="input-group"><input class="form-control range-miles" type="number" min="0" max="250" value="${miles}"><span class="input-group-text">MI</span></div><div class="form-text">Set to 0 to leave this preset unused.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-arrow-clockwise"></i>Aircraft refresh</label><div class="input-group"><input class="form-control range-refresh" type="number" min="2" max="300" value="${r.refresh||10}"><span class="input-group-text">sec</span></div><div class="form-text">How often data is fetched at this range.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-tags"></i>Visible labels</label><input class="form-control range-labels" type="number" min="0" max="50" value="${r.labels??24}"><div class="form-text">Notification matches are still labelled.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-clock-history"></i>Aircraft history trail</label><div class="form-check form-switch mb-0"><input class="form-check-input range-history" type="checkbox" ${history?'checked':''}></div><div class="form-text">Show the last 10 received positions for aircraft at this range.</div></div></div></div>`; }
 	// Build one aircraft notification rule row.
-	function notifyRow(i,n){ n=n||{}; let enabled=n.enabled!==false,bold=!!n.boldText,dim=!!n.dimOthers,type=esc(n.type||''),text=esc(n.text||''); return `<div class="notify-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-airplane"></i></div><div><h3>Notification ${i+1}</h3><p>${type?`Aircraft type exactly "${type}"`:'Empty rule slot'}</p></div></div><button class="btn btn-sm btn-outline-danger delete-notification" type="button">Delete</button></div><div class="notify-switches"><div class="form-check form-switch mb-0"><input class="form-check-input notify-enabled" type="checkbox" ${enabled?'checked':''}><label class="form-check-label">Enabled</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-bold" type="checkbox" ${bold?'checked':''}><label class="form-check-label">Bold label</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-dim" type="checkbox" ${dim?'checked':''}><label class="form-check-label">Dim other aircraft</label></div></div><div class="row g-3 align-items-end"><div class="col-lg-4"><label class="form-label">Exact aircraft type</label><input class="form-control notify-type" maxlength="15" placeholder="A20N, B738, C130" value="${type}"></div><div class="col-lg-6"><label class="form-label">Radar text</label><input class="form-control notify-text" maxlength="39" placeholder="Alert text shown on radar" value="${text}"></div><div class="col-lg-2"><label class="form-label">Aircraft colour</label><input class="form-control form-control-color notify-color" type="color" value="${n.color||'#ffb020'}" title="Colour"></div></div></div>`; }
+	function notifyRow(i,n){ n=n||{}; let enabled=n.enabled!==false,bold=!!n.boldText,dim=!!n.dimOthers,type=esc(n.type||''),text=esc(n.text||''); return `<div class="notify-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-airplane"></i></div><div><h3>Notification ${i+1}</h3><p>${type?`Aircraft type exactly "${type}"`:'Empty rule slot'}</p></div></div><button class="btn btn-sm btn-outline-danger delete-notification" type="button">Delete</button></div><div class="notify-fields"><div class="notify-field-card"><label class="form-label"><i class="bi bi-power"></i>Enabled</label><div class="form-check form-switch mb-0"><input class="form-check-input notify-enabled" type="checkbox" ${enabled?'checked':''}></div></div><div class="notify-field-card"><label class="form-label"><i class="bi bi-type-bold"></i>Bold label</label><div class="form-check form-switch mb-0"><input class="form-check-input notify-bold" type="checkbox" ${bold?'checked':''}></div></div><div class="notify-field-card"><label class="form-label"><i class="bi bi-eye-slash"></i>Dim others</label><div class="form-check form-switch mb-0"><input class="form-check-input notify-dim" type="checkbox" ${dim?'checked':''}></div></div><div class="notify-field-card"><label class="form-label"><i class="bi bi-airplane-engines"></i>Aircraft type</label><input class="form-control notify-type" maxlength="15" placeholder="A20N, B738" value="${type}"></div><div class="notify-field-card"><label class="form-label"><i class="bi bi-chat-square-text"></i>Radar text</label><input class="form-control notify-text" maxlength="39" placeholder="Alert text" value="${text}"></div><div class="notify-field-card"><label class="form-label"><i class="bi bi-palette"></i>Colour</label><input class="form-control form-control-color notify-color" type="color" value="${n.color||'#ffb020'}" title="Colour"></div></div></div>`; }
 	// Rebuild the notification editor rows from a compacted notification list.
 	function renderNotificationRows(items){ let rows=$('#notificationRows').empty(); items=items||[]; for(let i=0;i<10;i++) rows.append(notifyRow(i,items[i])); }
 	// Create the display label used by the airport autocomplete and selection state.
@@ -1204,7 +1241,7 @@ function updateWifiCard(wifi){
     .text(connected?'Connected':(wifi.portalActive?'Portal active':(wifi.started?'Not connected':'Disconnected')));
 }
 	// Render the complete settings response into the page.
-	function render(data){ cfg=data; $('#centerSource').val(data.general.centerSource||'manual'); $('#lat').val(data.general.lat); $('#lon').val(data.general.lon); $('#dataSource').val(data.general.dataSource||'airplanes_live'); $('#localAircraftUrl').val(data.general.localAircraftUrl||''); $('#airportDbToken').val((data.apiKeys&&data.apiKeys.airportDbToken)||''); $('#openWeatherApiKey').val((data.apiKeys&&data.apiKeys.openWeatherApiKey)||''); renderStyleGroups(data); $('#rangeRows').empty(); for(let i=0;i<10;i++) $('#rangeRows').append(rangeRow(i,data.ranges[i])); renderNotificationRows(data.notifications||[]); rebuildDefaultRange(data.general.defaultRange); updateWifiCard(data.wifi||{}); let a=data.general.airport||{}; if(a.name){ $('#airportSearch').val(airportLabel(a)); renderAirport(a); } else { $('#airportSearch').val(''); renderAirport(null); } let l=data.general.location||{}; if(l.name){ $('#locationSearch').val(locationLabel(l)); renderLocation(l); } else { $('#locationSearch').val(''); renderLocation(null); } $('#locationResults').empty(); renderGps(data.gps); updateSourceState(); updateDataSourceState(); status('Loaded','success'); setTimeout(()=>refreshLocationMap(false),120); }
+	function render(data){ cfg=data; $('#centerSource').val(data.general.centerSource||'manual'); $('#lat').val(data.general.lat); $('#lon').val(data.general.lon); $('#dataSource').val(data.general.dataSource||'airplanes_live'); $('#localAircraftUrl').val(data.general.localAircraftUrl||''); $('#airportDbToken').val((data.apiKeys&&data.apiKeys.airportDbToken)||''); $('#openWeatherApiKey').val((data.apiKeys&&data.apiKeys.openWeatherApiKey)||''); renderStyleGroups(data); renderHardwareControls(data); $('#rangeRows').empty(); for(let i=0;i<10;i++) $('#rangeRows').append(rangeRow(i,data.ranges[i])); renderNotificationRows(data.notifications||[]); rebuildDefaultRange(data.general.defaultRange); updateWifiCard(data.wifi||{}); let a=data.general.airport||{}; if(a.name){ $('#airportSearch').val(airportLabel(a)); renderAirport(a); } else { $('#airportSearch').val(''); renderAirport(null); } let l=data.general.location||{}; if(l.name){ $('#locationSearch').val(locationLabel(l)); renderLocation(l); } else { $('#locationSearch').val(''); renderLocation(null); } $('#locationResults').empty(); renderGps(data.gps); updateSourceState(); updateDataSourceState(); status('Loaded','success'); setTimeout(()=>refreshLocationMap(false),120); }
 	// Rebuild the startup range dropdown from the current range preset rows.
 	function rebuildDefaultRange(selected){ let sel=$('#defaultRange').empty(); collectRanges().forEach(r=>{ if(r.miles>0) sel.append(`<option value="${r.miles}">${r.miles} MI</option>`); }); sel.val(String(selected||(collectRanges()[0]||{}).miles||50)); }
 	// Collect the range preset rows into the settings payload format.
@@ -1223,16 +1260,18 @@ function updateWifiCard(wifi){
 	function collectUi(){ let ui={}; $('.ui-value').each(function(){ ui[$(this).data('key')]=+$(this).val()||0; }); return ui; }
 	// Collect configured radar label fonts and sizes.
 	function collectLabelStyles(){ let styles={}; $('.label-font-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].font=$(this).val(); }); $('.label-size-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].size=clampRange($(this).val(),10,22); }); return styles; }
+	// Parse a hardware address field, accepting decimal or 0x-prefixed hex.
+	function parseHardwareAddress(value,fallback){ let text=String(value||'').trim().toLowerCase(); let parsed=text.startsWith('0x')?parseInt(text,16):parseInt(text,10); return Number.isFinite(parsed)?parsed:fallback; }
 	// Build the complete settings payload sent to the ESP32.
-	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportWeather:$('#showAirportWeather').is(':checked'), airportWeatherRefreshMin:+$('#airportWeatherRefreshMin').val()||15, airportWeatherIconSize:+$('#airportWeatherIconSize').val()||14, showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked'), hardware:{enabled:$('#hardwareControlsEnabled').is(':checked'), showHints:$('#hardwareShowHints').is(':checked'), menuTimeoutSec:+$('#hardwareMenuTimeoutSec').val()||15, rotaryAction:$('#hardwareRotaryAction').val(), confirmAction:$('#hardwareConfirmAction').val(), backAction:$('#hardwareBackAction').val(), pushAction:$('#hardwarePushAction').val()}}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
+	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportWeather:$('#showAirportWeather').is(':checked'), airportWeatherRefreshMin:+$('#airportWeatherRefreshMin').val()||15, airportWeatherIconSize:+$('#airportWeatherIconSize').val()||14, showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked'), hardware:{enabled:$('#hardwareControlsEnabled').is(':checked'), showHints:$('#hardwareShowHints').is(':checked'), menuTimeoutSec:+$('#hardwareMenuTimeoutSec').val()||15, oledI2cAddr:parseHardwareAddress($('#hardwareOledI2cAddr').val(),0x3c), confirmGpio:+$('#hardwareConfirmGpio').val()||0, backGpio:+$('#hardwareBackGpio').val()||0, rotaryAGpio:+$('#hardwareRotaryAGpio').val()||0, rotaryBGpio:+$('#hardwareRotaryBGpio').val()||0, rotaryPushGpio:+$('#hardwareRotaryPushGpio').val()||0, rotaryAction:$('#hardwareRotaryAction').val(), confirmAction:$('#hardwareConfirmAction').val(), backAction:$('#hardwareBackAction').val(), pushAction:$('#hardwarePushAction').val()}}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
 	// Load factory defaults so reset buttons can restore only selected groups.
 	function loadDefaults(){ $.getJSON('/api/settings/defaults').done(data=>defaults=data); }
 	// Load current settings and refresh the defaults cache.
 	function loadSettings(){ let req=$.getJSON('/api/settings').done(render).fail(()=>status('Load failed','danger')); loadDefaults(); return req; }
 	// Save the current form state and then re-render from the device response.
 	function saveSettings(){ status('Saving','warning'); let target=loadingTarget(); return withAjaxLoading(target,'Saving settings to the ESP32...',()=>$.ajax({url:'/api/settings',method:'POST',data:JSON.stringify(collectSettings()),contentType:'application/json'}).done(()=>loadSettings()).fail(x=>status(x.responseText||'Save failed','danger'))); }
-	const mainTabByHash={dashboard:'#espStatus',status:'#espStatus',location:'#general','data-sources':'#apiKeys',display:'#colours',notifications:'#notifications',ranges:'#ranges',wifi:'#wifi'};
-	const hashByMainTab={espStatus:'dashboard',general:'location',apiKeys:'data-sources',colours:'display',notifications:'notifications',ranges:'ranges',wifi:'wifi'};
+	const mainTabByHash={dashboard:'#espStatus',status:'#espStatus',location:'#general','data-sources':'#apiKeys',display:'#colours',hardware:'#hardwareControl','hardware-control':'#hardwareControl',notifications:'#notifications',ranges:'#ranges',wifi:'#wifi'};
+	const hashByMainTab={espStatus:'dashboard',general:'location',apiKeys:'data-sources',colours:'display',hardwareControl:'hardware-control',notifications:'notifications',ranges:'ranges',wifi:'wifi'};
 	const statusTabByHash={'dashboard-info':'#statusInfo','dashboard-aircraft':'#statusAircraft','dashboard-screenshot':'#statusScreenshot','dashboard-import-export':'#statusImportExport','status-info':'#statusInfo','status-aircraft':'#statusAircraft','status-screenshot':'#statusScreenshot','status-import-export':'#statusImportExport'};
 	const hashByStatusTab={statusInfo:'dashboard-info',statusAircraft:'dashboard-aircraft',statusScreenshot:'dashboard-screenshot',statusImportExport:'dashboard-import-export'};
 	function importExportStatus(text,cls){ $('#importExportStatus').removeClass().addClass('alert alert-'+(cls||'secondary')+' py-2 mb-3').text(text); }

@@ -110,8 +110,15 @@ esp_err_t Ssd1306StatusDisplay::writeData(const uint8_t *data, size_t count)
     return ESP_OK;
 }
 
-esp_err_t Ssd1306StatusDisplay::init()
+esp_err_t Ssd1306StatusDisplay::init(uint8_t i2c_address)
 {
+    if (device) {
+        i2c_master_bus_rm_device((i2c_master_dev_handle_t)device);
+        device = nullptr;
+    }
+    available = false;
+    address = i2c_address;
+
     esp_err_t err = bsp_i2c_init();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "BSP I2C init failed: %s", esp_err_to_name(err));
@@ -123,15 +130,15 @@ esp_err_t Ssd1306StatusDisplay::init()
         return ESP_ERR_INVALID_STATE;
     }
 
-    err = i2c_master_probe(bus, OLED_ADDR, 100);
+    err = i2c_master_probe(bus, address, 100);
     if (err != ESP_OK) {
-        ESP_LOGW(TAG, "SSD1306 not found at 0x%02x: %s", OLED_ADDR, esp_err_to_name(err));
+        ESP_LOGW(TAG, "SSD1306 not found at 0x%02x: %s", address, esp_err_to_name(err));
         return err;
     }
 
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-    dev_cfg.device_address = OLED_ADDR;
+    dev_cfg.device_address = address;
     dev_cfg.scl_speed_hz = CONFIG_BSP_I2C_CLK_SPEED_HZ;
     i2c_master_dev_handle_t handle = nullptr;
     err = i2c_master_bus_add_device(bus, &dev_cfg, &handle);

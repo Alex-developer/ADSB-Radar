@@ -159,6 +159,7 @@ void AircraftFetchService::task(void *arg)
                 aircraft_client = NULL;
             }
             owner->set_data_status("NO WIFI");
+            owner->update_oled_activity("WAIT WIFI");
             vTaskDelay(pdMS_TO_TICKS(5000));
             continue;
         }
@@ -174,6 +175,7 @@ void AircraftFetchService::task(void *arg)
         if (!had_successful_fetch) {
             owner->set_data_status("FETCH");
         }
+        owner->update_oled_activity("FETCH AIRCRAFT");
 
         if (data_source == AIRCRAFT_DATA_SOURCE_LOCAL) {
             if (aircraft_client) {
@@ -221,6 +223,7 @@ void AircraftFetchService::task(void *arg)
             if (parsed) {
                 had_successful_fetch = true;
                 consecutive_http_failures = 0;
+                owner->update_oled_activity("AIRCRAFT OK");
                 if (owner->aircraft_mutex &&
                     xSemaphoreTake(owner->aircraft_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
                     snprintf(last_success_status, sizeof(last_success_status), "%s",
@@ -233,10 +236,13 @@ void AircraftFetchService::task(void *arg)
             }
         } else if (err == ESP_ERR_NO_MEM) {
             owner->set_data_status("NO MEM");
+            owner->update_oled_activity("AIRCRAFT NO MEM");
         } else if (err == ESP_ERR_INVALID_SIZE) {
             owner->set_data_status("TOO BIG");
+            owner->update_oled_activity("AIRCRAFT TOO BIG");
         } else {
             ++consecutive_http_failures;
+            owner->update_oled_activity("AIRCRAFT ERR");
             ESP_LOGW(TAG, "Aircraft fetch cycle failed (%d consecutive): %s",
                      consecutive_http_failures, esp_err_to_name(err));
             if (!had_successful_fetch) {

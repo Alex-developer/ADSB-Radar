@@ -33,6 +33,7 @@
 #include "SettingsServer.hpp"
 #include "AircraftPopupController.hpp"
 #include "CurvedButtonController.hpp"
+#include "HardwareControlService.hpp"
 #include "Ssd1306StatusDisplay.hpp"
 #include "WifiManager.hpp"
 
@@ -67,6 +68,7 @@ private:
     friend class AircraftRouteService;
     friend class AircraftPopupController;
     friend class CurvedButtonController;
+    friend class HardwareControlService;
 
     static RadarApp *active_app;
     static constexpr size_t DATA_MENU_ROW_COUNT = 8;
@@ -82,6 +84,23 @@ private:
         int64_t fetched_ms;
         bool valid;
     } airport_weather_t;
+
+    /* Per-update aircraft display decisions shared by plot, labels, and banners. */
+    typedef struct {
+        bool in_range;
+        bool visible;
+        bool focus_match;
+        bool dimmed;
+        int notification_index;
+        int label_slot;
+        int x;
+        int y;
+        int label_x;
+        int label_y;
+        int leader_x;
+        int leader_y;
+        uint32_t color;
+    } aircraft_ui_state_t;
 
     /* Main radar canvases and root UI objects. */
     lv_obj_t *radar_canvas = nullptr;
@@ -112,12 +131,6 @@ private:
     lv_obj_t *data_menu = nullptr;
     lv_obj_t *data_menu_rows[DATA_MENU_ROW_COUNT] = {};
     lv_obj_t *data_menu_labels[DATA_MENU_ROW_COUNT] = {};
-    lv_obj_t *hardware_menu = nullptr;
-    lv_obj_t *hardware_menu_title = nullptr;
-    lv_obj_t *hardware_menu_rows[10] = {};
-    lv_obj_t *hardware_menu_labels[10] = {};
-    lv_obj_t *hardware_menu_values[10] = {};
-    lv_obj_t *hardware_menu_help = nullptr;
 
     /* Captive portal overlay shown on the device while WiFi setup is active. */
     lv_obj_t *portal_overlay = nullptr;
@@ -141,6 +154,8 @@ private:
 
     /* Pre-allocated drawing state, kept stable to avoid heap churn during sweep updates. */
     radar_marker_t markers[MAX_AIRCRAFT_LABELS] = {};
+    aircraft_ui_state_t *aircraft_ui_state = nullptr;
+    bool aircraft_ui_focus_active = false;
     aircraft_track_history_t *aircraft_tracks = nullptr;
     lv_image_dsc_t aircraft_photo_dsc = {};
 
@@ -158,6 +173,7 @@ private:
     char latest_status[32] = "STARTING";
     char portal_status[80] = "Starting setup network";
     char oled_wifi_line[32] = "WIFI --";
+    char oled_activity_line[32] = "STARTING";
 
     /* WiFi credentials and AP identity. Password is kept only in RAM after loading. */
     char wifi_ssid[33] = {};
@@ -171,17 +187,6 @@ private:
     /* Runtime UI state. */
     int sweep_angle_deg = 0;
     size_t range_index = 2;
-    void *rotary_knob_handle = nullptr;
-    volatile int encoder_pending_delta = 0;
-    int encoder_event_accum = 0;
-    int confirm_last_level = 1;
-    int back_last_level = 1;
-    int push_last_level = 1;
-    int64_t confirm_last_change_us = 0;
-    int64_t back_last_change_us = 0;
-    int64_t push_last_change_us = 0;
-    int hardware_menu_selected = 0;
-    int64_t hardware_menu_last_use_us = 0;
     aircraft_filter_t aircraft_filter = AIRCRAFT_FILTER_ALL;
     uint32_t aircraft_photo_request_id = 0;
     uint32_t aircraft_route_request_id = 0;
@@ -223,6 +228,7 @@ private:
     SettingsServer settings_server = {};
     AircraftPopupController popup_controller = {};
     CurvedButtonController curved_button_controller = {};
+    HardwareControlService hardware_controls = {};
     CaptivePortal captive_portal = {};
     WifiManager wifi_manager = {};
     Ssd1306StatusDisplay oled_status = {};
@@ -262,13 +268,6 @@ private:
 
     /* Forward the slower aircraft/UI refresh timer callback. */
     static void update_aircraft_ui_entry(lv_timer_t *timer);
-
-    /* Poll the physical rotary encoder from the LVGL timer thread. */
-    static void rotary_timer_entry(lv_timer_t *timer);
-
-    /* Queue left/right events from the Espressif knob driver. */
-    static void knob_left_entry(void *knob, void *user_data);
-    static void knob_right_entry(void *knob, void *user_data);
 
     /* FreeRTOS entry point for the aircraft photo worker task. */
     static void aircraft_photo_fetch_task_entry(void *arg);
@@ -354,9 +353,6 @@ private:
 
     /* Select the configured startup/default range. */
     void set_range_to_default();
-
-    /* Configure physical buttons and the trim rotary encoder GPIOs. */
-    void init_rotary_inputs();
 
     /* Return the smallest signed difference between two headings. */
     static int angle_delta(int a, int b);
@@ -450,6 +446,9 @@ private:
     /* Mirror the active station or setup AP IP address onto the optional SSD1306 display. */
     void update_oled_ip(const char *ip, bool setup_ap);
 
+    /* Mirror a short current background activity onto the optional SSD1306 display. */
+    void update_oled_activity(const char *fmt, ...);
+
     /* Redraw the optional SSD1306 with WiFi and radar status lines. */
     void refresh_oled_dashboard();
 
@@ -491,31 +490,8 @@ private:
     /* Toggle the DATA popup menu. */
     void toggle_data_menu();
 
-    /* Create the hardware-control menu overlay. */
-    void create_hardware_menu(lv_obj_t *screen);
-
-    /* Refresh the hardware menu row text and selection state. */
-    void refresh_hardware_menu();
-
-    /* Show, hide, or move within the hardware menu. */
-    void show_hardware_menu();
-    void hide_hardware_menu();
-    void move_hardware_menu_selection(int delta);
-
-    /* Execute the selected hardware menu row. */
-    void select_hardware_menu_item();
-
-    /* Run one configured hardware button action. */
-    void apply_hardware_button_action(int action);
-
-    /* Check one active-low button for a debounced press. */
-    bool consume_button_press(int gpio, int *last_level, int64_t *last_change_us);
-
     /* Handle left, middle, and right range button taps. */
     void range_button_event(lv_event_t *event);
-
-    /* Poll the physical rotary encoder and apply completed detents. */
-    void rotary_timer_cb();
 
     /* Handle a range popup row tap. */
     void range_menu_event(lv_event_t *event);
@@ -544,8 +520,16 @@ private:
     /* Choose the marker colour for a displayed aircraft. */
     uint32_t marker_color(const aircraft_data_t *aircraft, bool hit, bool dimmed = false) const;
 
+    /* Choose the marker colour using a notification rule already found by the UI pass. */
+    uint32_t marker_color_with_notification(const aircraft_data_t *aircraft,
+                                            const notification_setting_t *notification,
+                                            bool hit, bool dimmed) const;
+
     /* Return the first configured notification that matches an aircraft type. */
     const notification_setting_t *matching_notification(const aircraft_data_t *aircraft) const;
+
+    /* Return the index of the first configured notification that matches an aircraft type. */
+    int matching_notification_index(const aircraft_data_t *aircraft) const;
 
     /* Return whether an aircraft matches a notification that focuses the radar. */
     bool matches_focus_notification(const aircraft_data_t *aircraft) const;
@@ -577,6 +561,12 @@ private:
 
     /* Project an aircraft's bearing and distance into radar canvas coordinates. */
     static bool project_aircraft_to_radar(const aircraft_data_t *aircraft, int range_mi, int *x, int *y);
+
+    /* Precompute aircraft filter, notification, colour, and screen position state. */
+    void build_aircraft_ui_state(const aircraft_data_t *snapshot, size_t count, int range_mi);
+
+    /* Choose an offset text position and leader-line endpoint for one aircraft label. */
+    static void position_aircraft_label(aircraft_ui_state_t *state);
 
     /* Find the aircraft nearest to a touch point. */
     int find_aircraft_at_point(int x, int y);
