@@ -31,6 +31,12 @@
 #define RADAR_SETTINGS_DEFAULT_SWEEP_TRAIL_STEP_DEG 1.0
 #define RADAR_SETTINGS_MIN_SWEEP_TRAIL_STEP_DEG 0.1
 #define RADAR_SETTINGS_MAX_SWEEP_TRAIL_STEP_DEG 10.0
+#define RADAR_SETTINGS_DEFAULT_AIRPORT_WEATHER_REFRESH_MIN 15
+#define RADAR_SETTINGS_MIN_AIRPORT_WEATHER_REFRESH_MIN 5
+#define RADAR_SETTINGS_MAX_AIRPORT_WEATHER_REFRESH_MIN 180
+#define RADAR_SETTINGS_DEFAULT_AIRPORT_WEATHER_ICON_SIZE 14
+#define RADAR_SETTINGS_MIN_AIRPORT_WEATHER_ICON_SIZE 8
+#define RADAR_SETTINGS_MAX_AIRPORT_WEATHER_ICON_SIZE 28
 #define RADAR_SETTINGS_LABEL_FONT_MONTSERRAT 0
 #define RADAR_SETTINGS_LABEL_FONT_DEFAULT 1
 #define RADAR_SETTINGS_DEFAULT_AIRCRAFT_LABEL_FONT RADAR_SETTINGS_LABEL_FONT_MONTSERRAT
@@ -65,12 +71,14 @@ typedef struct {
     int miles;
     int refresh_sec;
     int label_count;
+    bool show_history_trail;
 } range_setting_t;
 
 /*
  * Notification rule shown at the top of the radar.
  *
- * type_match is a case-insensitive substring matched against aircraft type.
+ * type_match is matched exactly against aircraft type, ignoring case and
+ * surrounding whitespace. Empty rules are ignored.
  * Empty rules are ignored.
  */
 typedef struct {
@@ -105,6 +113,7 @@ typedef struct {
     uint32_t sweep;
     uint32_t country_boundary;
     uint32_t airport;
+    uint32_t airport_weather;
     uint32_t runway;
     uint32_t aircraft_normal;
     uint32_t aircraft_stale;
@@ -228,6 +237,9 @@ typedef struct {
     int sweep_trail_width;
     double sweep_trail_step_deg;
     bool show_airports;
+    bool show_airport_weather;
+    int airport_weather_refresh_min;
+    int airport_weather_icon_size;
     bool emergency_squawks_red;
     bool show_aircraft_heading;
     int aircraft_heading_style;

@@ -48,32 +48,49 @@ Waveshare hardware documentation:
 - Live aircraft data from Airplanes.live, ADSB.lol, ADSB.fi, or a local
   `aircraft.json` feed such as readsb or dump1090.
 - Touch-screen range control with up to ten configurable ranges, refresh
-  intervals, and label limits.
+  intervals, label limits, and optional per-range aircraft history trails.
 - Aircraft symbols coloured by altitude, with optional emergency squawk
   highlighting.
 - Callsign and flight-level/speed labels, including configurable aircraft label
   font and size.
-- Heading arrows, plus optional climb/descent triangles beside the flight level.
+- ATC-style aircraft target symbols with configurable heading indicators:
+  none, line, or arrow.
+- Optional climb/descent triangles beside the flight level.
 - Aircraft filtering from the radar DATA menu: all aircraft, military aircraft,
+  or interesting aircraft.
+- DATA menu toggles for aircraft headings, airports, country boundaries,
+  runways, and aircraft on the ground.
 - Aircraft detail popup from touch selection, with optional PlaneSpotters photo
-  thumbnails where available.
+  thumbnails and optional route information where available.
 - Notification rules for aircraft type matches, including per-rule colour,
-  enabled state, bold labels, and radar banner text.
+  enabled state, bold labels, optional "dim other aircraft" focus mode, and
+  radar banner text.
 - Airport markers generated from `data/airports.csv`, with airport search for
   setting the radar centre.
+- Optional airport weather icons from Open-Meteo, including configurable icon
+  size, colour, and refresh interval.
 - Optional country boundary overlay generated from `data/world.geojson`.
 - Optional runway overlay when the radar is centred on an airport, using
   AirportDB with cached, rate-limited API calls.
 - Captive portal for first-time WiFi setup and a radar WiFi menu for IP address,
-  changing WiFi, and rebooting the device.
+  changing WiFi, clearing NVS, and rebooting the device.
 - Browser-based Bootstrap admin page with Location, Data Sources, Display,
-  Notifications, Ranges, WiFi, and Status sections.
+  Notifications, Ranges, WiFi, and Dashboard sections.
+- Browser admin supports light and dark themes, stored per browser.
 - Display controls for colours, line widths, visibility, label fonts and sizes,
-  tick lengths, radial spacing, sweep step, and sweep draw interval.
-- Status pages for memory, heap low-water marks, caches, WiFi, GPS, data source,
-  and the full aircraft list.
+  tick lengths, radial spacing, sweep step, sweep draw interval, and sweep trail
+  behaviour.
+- Dashboard pages for memory, heap low-water marks, caches, WiFi, GPS, data
+  source, the full aircraft list, current LVGL screenshot download, and settings
+  import/export.
+- Aircraft table in the browser uses DataTables search and grouping, and marks
+  aircraft currently shown with labels on the radar.
 - Optional USB GPS support for the radar centre, including GPS status and a
   button to copy the current GPS fix into the manual position fields.
+- Optional SSD1306 128x64 I2C display for local status such as WiFi/IP address
+  and radar data state.
+- Optional physical confirm/back buttons and rotary encoder for range changes
+  and a small device-side menu.
 
 ## Required Hardware
 
@@ -87,6 +104,9 @@ Required:
 Optional:
 
 - USB GPS receiver connected to the board USB-A port.
+- SSD1306 128x64 I2C display at address `0x3c` for status output.
+- Physical controls: confirm button on GPIO 30, back button on GPIO 46, rotary
+  encoder CLK on GPIO 47, DATA on GPIO 52, and encoder push button on GPIO 48.
 - AirportDB API token if you want runway drawing. AirportDB requires
   registration at [airportdb.io](https://airportdb.io) and the free API limit is
   5000 calls per month.
@@ -260,16 +280,23 @@ The admin page is split into tabs:
   feed. This is also where the AirportDB and OpenWeather API keys are stored.
 - Display: control radar layers, aircraft headings, ground aircraft display,
   sweep timing, label fonts and sizes, colours, line widths, tick lengths,
-  radial spacing, and altitude colour bands.
+  radial spacing, altitude colour bands, airport weather display, and hardware
+  control behaviour.
 - Notifications: configure up to ten aircraft type rules. A match can colour the
   aircraft, force its label to remain visible, display banner text on the radar,
-  and optionally use a bolder label.
+  optionally use a bolder label, and optionally dim all other aircraft.
 - Ranges: configure up to ten range presets. Each preset has its own range,
-  aircraft refresh interval, and maximum number of labels.
-- WiFi: scan for networks and store WiFi credentials.
-- Status: view device memory, heap, cache use, WiFi state, GPS state, fetch
-  status, and the full aircraft table. The aircraft table uses DataTables search
-  and groups aircraft by whether they are currently on the radar display.
+  aircraft refresh interval, maximum number of labels, and optional aircraft
+  history trail. History trails are off by default and, when enabled, show the
+  last ten received positions for each aircraft at that range.
+- WiFi: view the current connection, scan nearby networks with signal strength,
+  and store WiFi credentials.
+- Dashboard: view device memory, heap, cache use, WiFi state, GPS state, fetch
+  status, the full aircraft table, a downloadable LVGL screenshot, and settings
+  import/export. The aircraft table uses DataTables search and groups aircraft
+  by whether they are currently on the radar display. Settings are exported as
+  JSON with a version number; importing a different version warns the user but
+  does not block the import.
 
 Settings are stored in NVS on the ESP32 and are applied to the radar after they
 are saved.
@@ -317,6 +344,15 @@ https://api.planespotters.net/pub/photos/hex/{icao_hex}
 The app adds browser-like headers and serialises HTTPS operations so aircraft
 data and photo downloads do not overlap at the TLS layer.
 
+Aircraft routes:
+
+```text
+https://api.adsbdb.com/v0/callsign/{flight}
+```
+
+Route lookups are optional and can be disabled in the Display settings. The
+popup can show either a short route or a longer route description.
+
 Airport runways:
 
 ```text
@@ -329,6 +365,25 @@ airport and an AirportDB API token has been saved in settings.
 5000 calls per month. The firmware caches and rate-limits AirportDB requests to
 avoid wasting that quota.
 
+Airport weather:
+
+```text
+https://api.open-meteo.com/v1/forecast
+```
+
+The app batches visible airport coordinates into one Open-Meteo request where
+possible. Weather refresh defaults to 15 minutes and is configurable in the
+Display settings. This does not require an API key.
+
+Location search:
+
+```text
+http://api.openweathermap.org/geo/1.0/direct
+```
+
+OpenWeather geocoding is used only for named-place search on the Location page
+and requires an OpenWeather API key.
+
 ## GPS
 
 Optional USB GPS support is built in.
@@ -339,6 +394,23 @@ the receiver is connected, whether NMEA data is being received, and whether a fi
 is available.
 
 You can also copy the current GPS position into the manual radar centre fields.
+
+## Device Controls
+
+The round display has touch controls around the radar edge:
+
+- Range button: tap the left side to step down, the right side to step up, or
+  the middle to open the range list.
+- DATA button: choose the aircraft filter and toggle map/aircraft layers.
+- WiFi button: show the IP address, start WiFi setup, clear NVS, or reboot.
+
+If the optional physical controls are fitted, the rotary encoder can change the
+range or drive the small device menu depending on the Display settings. The
+confirm, back, and encoder push buttons can also be mapped to common actions in
+the browser admin page.
+
+The optional SSD1306 display shows compact status information such as WiFi state,
+IP address, radar fetch status, and aircraft count.
 
 ## Useful Commands
 
@@ -419,6 +491,10 @@ Aircraft data is stale:
 - Check that the ESP32 has joined WiFi.
 - Check the configured radar centre and range.
 - Confirm the WiFi network has internet access and allows HTTPS.
+- If you use a local receiver source, confirm the configured
+  `aircraft.json` URL is reachable from the ESP32 network.
+- Check the Dashboard aircraft table to see whether data is being received but
+  filtered or outside the active range.
 
 Runways are not displayed:
 
@@ -426,3 +502,11 @@ Runways are not displayed:
 - Confirm an AirportDB API token is saved in settings. Register at
   [airportdb.io](https://airportdb.io) if you do not have one.
 - Confirm runway drawing is enabled in settings.
+
+Sweep animation is slow:
+
+- Disable optional aircraft history trails for the active range.
+- Reduce the number of visible labels for busy ranges.
+- Increase the sweep draw interval or reduce the sweep trail count in Display
+  settings.
+- Check the Dashboard memory panel for low internal/DMA heap.

@@ -40,7 +40,10 @@
 #define DEFAULT_BRIGHTNESS 95
 #define MAX_AIRCRAFT_TARGETS 512
 #define MAX_AIRCRAFT_LABELS 50
+#define MAX_AIRCRAFT_TRACKS 512
+#define AIRCRAFT_HISTORY_POINTS 10
 #define MAX_AIRPORT_LABELS 64
+#define MAX_AIRPORT_WEATHER 64
 #define MAX_PARSED_AIRCRAFT 512
 #define RANGE_RING_COUNT 5
 #define HEADING_LABEL_COUNT 12
@@ -78,6 +81,9 @@
 #define FETCH_TASK_STACK 16384
 #define FETCH_TASK_PRIORITY 1
 #define FETCH_TASK_CORE 0
+#define AIRPORT_WEATHER_TASK_STACK 12288
+#define AIRPORT_WEATHER_TASK_PRIORITY 1
+#define AIRPORT_WEATHER_TASK_CORE 0
 #define DNS_TASK_STACK 4096
 #define DNS_TASK_PRIORITY 3
 #define WIFI_CONNECTED_BIT BIT0
@@ -147,6 +153,20 @@ typedef struct {
     bool visible;
     bool highlighted;
 } radar_marker_t;
+
+/* One remembered aircraft position used for optional range-specific history trails. */
+typedef struct {
+    float distance_mi;
+    int bearing_deg;
+} aircraft_history_point_t;
+
+/* Fixed-size aircraft history cache keyed by ICAO hex when available. */
+typedef struct {
+    char key[12];
+    aircraft_history_point_t points[AIRCRAFT_HISTORY_POINTS];
+    uint8_t count;
+    uint32_t last_generation;
+} aircraft_track_history_t;
 
 /*
  * A curved text button placed around the lower radar arc.

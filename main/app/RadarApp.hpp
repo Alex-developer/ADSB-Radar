@@ -72,14 +72,26 @@ private:
     static constexpr size_t DATA_MENU_ROW_COUNT = 8;
     static constexpr size_t SWEEP_TRAIL_COUNT = 50;
 
+    /* Cached weather for one visible airport. */
+    typedef struct {
+        size_t airport_index;
+        int weather_code;
+        int cloud_cover;
+        float precipitation_mm;
+        float rain_mm;
+        int64_t fetched_ms;
+        bool valid;
+    } airport_weather_t;
+
     /* Main radar canvases and root UI objects. */
     lv_obj_t *radar_canvas = nullptr;
     lv_obj_t *aircraft_canvas = nullptr;
     lv_obj_t *screen_root = nullptr;
     void *radar_canvas_buf = nullptr;
     void *aircraft_canvas_buf = nullptr;
-    lv_obj_t *sweep_line = nullptr;
-    lv_obj_t *sweep_trail_lines[SWEEP_TRAIL_COUNT] = {};
+    lv_obj_t *sweep_overlay = nullptr;
+    int sweep_overlay_left = 0;
+    int sweep_overlay_top = 0;
 
     /* Curved control buttons and their popup menus. */
     curved_button_t range_button = {};
@@ -128,14 +140,14 @@ private:
     lv_obj_t *airport_labels[MAX_AIRPORT_LABELS] = {};
 
     /* Pre-allocated drawing state, kept stable to avoid heap churn during sweep updates. */
-    lv_point_precise_t sweep_points[2] = {};
-    lv_point_precise_t sweep_trail_points[SWEEP_TRAIL_COUNT][2] = {};
     radar_marker_t markers[MAX_AIRCRAFT_LABELS] = {};
+    aircraft_track_history_t *aircraft_tracks = nullptr;
     lv_image_dsc_t aircraft_photo_dsc = {};
 
     /* Cross-task coordination and aircraft snapshots. */
     SemaphoreHandle_t aircraft_mutex = nullptr;
     SemaphoreHandle_t wifi_mutex = nullptr;
+    SemaphoreHandle_t airport_weather_mutex = nullptr;
     EventGroupHandle_t wifi_event_group = nullptr;
     aircraft_data_t *latest_aircraft = nullptr;
     aircraft_data_t *ui_aircraft_snapshot = nullptr;
@@ -174,6 +186,9 @@ private:
     uint32_t aircraft_photo_request_id = 0;
     uint32_t aircraft_route_request_id = 0;
     int wifi_retry_count = 0;
+    airport_weather_t airport_weather[MAX_AIRPORT_WEATHER] = {};
+    size_t airport_weather_count = 0;
+    int64_t airport_weather_last_fetch_ms = 0;
 
     /* Volatile flags touched by worker tasks or event callbacks. */
     volatile bool aircraft_photo_fetch_running = false;
@@ -242,6 +257,9 @@ private:
     /* Forward the fast sweep timer callback. */
     static void sweep_timer_entry(lv_timer_t *timer);
 
+    /* Draw the custom sweep overlay in one LVGL draw event. */
+    static void sweep_draw_event_entry(lv_event_t *event);
+
     /* Forward the slower aircraft/UI refresh timer callback. */
     static void update_aircraft_ui_entry(lv_timer_t *timer);
 
@@ -309,6 +327,9 @@ private:
 
     /* FreeRTOS entry point for the aircraft fetch loop. */
     static void aircraft_fetch_task_entry(void *arg);
+
+    /* FreeRTOS entry point for the airport weather refresh loop. */
+    static void airport_weather_task_entry(void *arg);
 
     /* Forward the popup close button event to the active app instance. */
     static void aircraft_popup_close_event_entry(lv_event_t *event);
@@ -544,6 +565,16 @@ private:
     /* Darken a plotted aircraft colour when notification focus is active. */
     static uint32_t dim_colour(uint32_t color);
 
+    /* Return a stable key used for aircraft history tracking. */
+    static const char *aircraft_track_key(const aircraft_data_t *aircraft);
+
+    /* Find or create the history cache slot for one aircraft. */
+    aircraft_track_history_t *track_history_for_aircraft(const aircraft_data_t *aircraft);
+
+    /* Update the history cache after a fresh aircraft snapshot is displayed. */
+    void update_aircraft_track_history(const aircraft_data_t *snapshot, size_t count,
+                                       int range_mi, uint32_t generation);
+
     /* Project an aircraft's bearing and distance into radar canvas coordinates. */
     static bool project_aircraft_to_radar(const aircraft_data_t *aircraft, int range_mi, int *x, int *y);
 
@@ -657,15 +688,30 @@ private:
     /* Draw an aircraft dot marker on the overlay canvas. */
     static void draw_aircraft_dot(lv_obj_t *canvas, int x, int y, uint32_t color);
 
-    /* Draw a small aircraft heading indicator on the overlay canvas. */
-    static void draw_aircraft_heading_arrow(lv_obj_t *canvas, int x, int y, int heading_deg,
-                                            uint32_t color, int width, bool arrow_head);
+    /* Draw an ATC-style square head symbol. */
+    static void draw_aircraft_head_symbol(lv_obj_t *canvas, int x, int y, uint32_t color);
+
+    /* Draw one small aircraft history point. */
+    static void draw_aircraft_history_dot(lv_obj_t *canvas, int x, int y, uint32_t color, lv_opa_t opa);
+
+    /* Draw a short heading indicator without implying future position. */
+    static void draw_aircraft_heading_indicator(lv_obj_t *canvas, int x, int y, int heading_deg,
+                                                uint32_t color, int width, bool arrow_head);
 
     /* Set one canvas pixel with alpha if it lies inside the canvas bounds. */
     static void canvas_set_px_opa_safe(lv_obj_t *canvas, int x, int y, uint32_t color, lv_opa_t opa);
 
     /* Draw a subtle airport cross marker. */
     void draw_airport_marker(lv_obj_t *canvas, int x, int y);
+
+    /* Draw a compact weather icon beside an airport marker. */
+    void draw_airport_weather_icon(lv_obj_t *canvas, int x, int y, int weather_code);
+
+    /* Read cached weather for one airport record index. */
+    bool get_airport_weather(size_t airport_index, airport_weather_t *weather);
+
+    /* Fetch and publish current weather for airports visible at the active range. */
+    void refresh_airport_weather();
 
     /* Draw country boundary segments that intersect the current radar range. */
     size_t draw_country_boundaries(lv_obj_t *canvas, int range_mi);
@@ -703,8 +749,8 @@ private:
     /* Install the PSRAM-first cJSON allocator hooks. */
     static void init_json_allocator();
 
-    /* Return whether a string contains another string, ignoring case. */
-    static bool string_contains_ci(const char *haystack, const char *needle);
+    /* Return whether two strings match after trimming, ignoring case. */
+    static bool string_equals_trimmed_ci(const char *left, const char *right);
 
     /* Convert a display range in statute miles to the API's nautical-mile request range. */
     static int miles_to_nautical_request(int range_mi);
@@ -926,6 +972,9 @@ private:
 
     /* Worker task that maintains WiFi state and periodically fetches aircraft data. */
     void aircraft_fetch_task(void *arg);
+
+    /* Worker task that refreshes weather for visible airports. */
+    void airport_weather_task(void *arg);
 
     /* Initialise NVS storage, erasing it once if the partition layout changed. */
     static void init_nvs();

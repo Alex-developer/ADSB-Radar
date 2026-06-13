@@ -25,8 +25,8 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     })();
   </script>
   <style>
-    :root{--ag-primary:#3b7ddd;--ag-primary-dark:#2f64b1;--ag-sidebar:#222e3c;--ag-sidebar-2:#1c2633;--ag-body:#f5f7fb;--ag-text:#495057;--ag-heading:#233242;--ag-muted:#6c757d;--ag-line:#dee6ed;--ag-panel:#ffffff;--ag-card:#ffffff;--ag-soft:#f8f9fa;--ag-subtle:#fbfcfe;--ag-hover:#f8fbff;--ag-input:#ffffff;--ag-input-border:#ced4da;--ag-shadow:0 .1rem .2rem rgba(0,0,0,.05)}
-    html[data-theme=dark]{--ag-primary:#60a5fa;--ag-primary-dark:#3b82f6;--ag-sidebar:#111827;--ag-sidebar-2:#0b1120;--ag-body:#0f172a;--ag-text:#cbd5e1;--ag-heading:#f8fafc;--ag-muted:#94a3b8;--ag-line:#334155;--ag-panel:#172033;--ag-card:#182235;--ag-soft:#111827;--ag-subtle:#1e293b;--ag-hover:#1d4ed81a;--ag-input:#0f172a;--ag-input-border:#334155;--ag-shadow:0 .35rem 1rem rgba(0,0,0,.22);color-scheme:dark}
+    :root{--ag-primary:#3b7ddd;--ag-primary-dark:#2f64b1;--ag-sidebar:#222e3c;--ag-sidebar-2:#1c2633;--ag-body:#f5f7fb;--ag-text:#495057;--ag-heading:#233242;--ag-muted:#6c757d;--ag-line:#dee6ed;--ag-panel:#ffffff;--ag-card:#ffffff;--ag-soft:#f8f9fa;--ag-subtle:#fbfcfe;--ag-hover:#f8fbff;--ag-input:#ffffff;--ag-input-border:#ced4da;--ag-shadow:0 .1rem .2rem rgba(0,0,0,.05);--ag-card-shadow:0 .45rem 1.25rem rgba(32,45,64,.08)}
+    html[data-theme=dark]{--ag-primary:#60a5fa;--ag-primary-dark:#3b82f6;--ag-sidebar:#111827;--ag-sidebar-2:#0b1120;--ag-body:#0f172a;--ag-text:#cbd5e1;--ag-heading:#f8fafc;--ag-muted:#94a3b8;--ag-line:#334155;--ag-panel:#172033;--ag-card:#182235;--ag-soft:#111827;--ag-subtle:#1e293b;--ag-hover:#1d4ed81a;--ag-input:#0f172a;--ag-input-border:#334155;--ag-shadow:0 .35rem 1rem rgba(0,0,0,.22);--ag-card-shadow:0 .55rem 1.4rem rgba(0,0,0,.32);color-scheme:dark}
     *{box-sizing:border-box}
     html,body{height:100%;min-height:100%;overflow:hidden}
     body{background:var(--ag-body);color:var(--ag-text);font-size:.875rem}
@@ -58,6 +58,8 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .settings-card>.tab-pane{height:100%;padding:1.5rem;overflow-y:auto;overflow-x:hidden}
     .settings-card>.tab-pane.active{display:block}
     .tab-pane > .section-title{position:sticky;top:-1.5rem;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:-1.5rem -1.5rem 1.25rem;padding:1rem 1.5rem;background:#fff;border-bottom:1px solid #edf0f2}
+    .section-heading{display:flex;align-items:stretch;gap:.85rem;min-width:0}
+    .section-icon{width:2.85rem;min-height:2.85rem;border-radius:.45rem;display:grid;place-items:center;background:#eef5ff;color:var(--ag-primary);font-size:1.25rem;flex:0 0 auto;border:1px solid #dbeafe}
     .section-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.5rem;flex:0 0 auto}
     .section-title h2{font-size:1.25rem;margin:0;font-weight:600;color:var(--ag-heading)}
     .section-title p{margin:.25rem 0 0;color:var(--ag-muted)}
@@ -72,13 +74,13 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     #displayPane .form-check-label{padding-left:.15rem;line-height:1.25}
     .form-check-input:checked{background-color:var(--ag-primary);border-color:var(--ag-primary)}
     .alert{border-radius:.25rem;border:1px solid #e9ecef}
-    .editor-intro{background:#fff;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;box-shadow:var(--ag-shadow);margin-bottom:1rem}
+    .editor-intro{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-radius:.45rem;padding:1rem;box-shadow:var(--ag-card-shadow);margin-bottom:1rem}
     .editor-intro h3{font-size:1rem;margin:0;color:var(--ag-heading);font-weight:600}
     .editor-intro p{margin:.25rem 0 0;color:var(--ag-muted);line-height:1.45}
     .editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
     .range-list{display:flex;flex-direction:column;gap:1rem}
     .notification-list{display:flex;flex-direction:column;gap:1rem}
-    .range-row,.notify-row{background:#fff;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;box-shadow:var(--ag-shadow)}
+    .range-row,.notify-row{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-left:4px solid var(--ag-primary);border-radius:.45rem;padding:1rem;box-shadow:var(--ag-card-shadow)}
     .range-row{display:flex;flex-direction:column;gap:1rem}
     .range-row .editor-card-head,.notify-row .editor-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;border-bottom:1px solid #edf0f2;padding-bottom:.75rem}
     .editor-card-title{display:flex;align-items:flex-start;gap:.75rem}
@@ -86,7 +88,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .editor-card-title h3{font-size:1rem;margin:0;color:var(--ag-heading);font-weight:600}
     .editor-card-title p{margin:0;color:var(--ag-muted);line-height:1.45}
     .range-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:end}
-    .range-field-card{background:#fbfcfe;border:1px solid #edf0f2;border-radius:.35rem;padding:.85rem}
+    .range-field-card{background:var(--ag-panel);border:1px solid var(--ag-line);border-radius:.4rem;padding:.85rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
     .range-field-card .form-label{display:flex;align-items:center;gap:.45rem;color:#495057}
     .range-field-card .form-label i{color:var(--ag-primary)}
     .notify-row{display:flex;flex-direction:column;gap:1rem}
@@ -97,7 +99,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .notify-switches .form-switch .form-check-input{margin-left:-2.35rem!important}
     .notify-switches .form-check-label{line-height:1.25;padding-left:.15rem}
     .dashboard-panel{background:#fff;border:1px solid #dee2e6;border-top:0;border-radius:0 0 .25rem .25rem;padding:1rem}
-    .dashboard-section{background:#fff;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;box-shadow:var(--ag-shadow);height:100%}
+    .dashboard-section{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-radius:.45rem;padding:1rem;box-shadow:var(--ag-card-shadow);height:100%}
     .dashboard-section h2{font-size:1rem;font-weight:600;color:var(--ag-heading)}
     .dashboard-mini-card{border:1px solid #e9ecef;border-radius:.35rem;background:#fff;padding:1rem;height:100%;box-shadow:var(--ag-shadow)}
     .screenshot-frame{background:var(--ag-panel);border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;text-align:center}
@@ -105,22 +107,24 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .screenshot-loading{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.82);backdrop-filter:blur(2px);border-radius:.35rem;cursor:wait}
     .screenshot-loading.active{display:flex}
     .screenshot-loading-box{background:#fff;border:1px solid #dee2e6;border-radius:.35rem;box-shadow:var(--ag-shadow);padding:1rem 1.25rem;min-width:260px;text-align:center;color:var(--ag-heading)}
-    .style-group{border:1px solid #e9ecef;border-radius:.25rem;padding:1rem;margin-bottom:1rem;background:#fff}
+    .ajax-loading{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.82);backdrop-filter:blur(2px);border-radius:.45rem;cursor:wait}
+    .ajax-loading.active{display:flex}
+    .ajax-loading-box{background:#fff;border:1px solid #dee2e6;border-radius:.35rem;box-shadow:var(--ag-shadow);padding:1rem 1.25rem;min-width:260px;text-align:center;color:var(--ag-heading)}
+    .style-group{border:1px solid var(--ag-line);border-radius:.45rem;padding:1rem;margin-bottom:1rem;background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));box-shadow:var(--ag-card-shadow)}
     .style-tabs{border-bottom:1px solid #dee2e6;gap:.25rem}
     .style-tabs .nav-link{border:1px solid transparent;border-radius:.25rem .25rem 0 0;color:#495057;font-weight:500;padding:.6rem .85rem}
     .style-tabs .nav-link:hover{border-color:#e9ecef;background:#f8f9fa;color:var(--ag-primary)}
     .style-tabs .nav-link.active{background:#fff;border-color:#dee2e6 #dee2e6 #fff;color:var(--ag-primary)}
-    .style-tab-content{background:#fff;border:1px solid #dee2e6;border-top:0;border-radius:0 0 .25rem .25rem;padding:1rem}
-    .style-tab-content .style-group{border:0;border-radius:0;padding:0;margin:0;background:transparent}
-    .display-card{background:#fff;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;box-shadow:var(--ag-shadow);height:100%}
+    .style-tab-content{background:var(--ag-soft);border:1px solid #dee2e6;border-top:0;border-radius:0 0 .35rem .35rem;padding:1rem}
+    .display-card{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-left:4px solid var(--ag-primary);border-radius:.45rem;padding:1rem;box-shadow:var(--ag-card-shadow);height:100%}
     .display-card-head{display:flex;align-items:flex-start;gap:.75rem;margin-bottom:1rem}
     .display-card-head h3{font-size:1rem;margin:0;color:var(--ag-heading);font-weight:600}
     .display-card-head p{margin:0;color:var(--ag-muted);line-height:1.45}
-    .style-row{border-top:1px solid #edf0f2;padding-top:.85rem;margin-top:.85rem}.style-row:first-of-type{border-top:0;margin-top:0;padding-top:0}
+    .style-row{border:1px solid var(--ag-line);border-radius:.4rem;background:var(--ag-panel);padding:.85rem;margin-top:.75rem}.style-row:first-of-type{margin-top:0}
     .style-row .form-switch{padding:.35rem 0 .35rem 2.75rem;background:transparent;border:0;border-radius:0;min-height:auto}
-    .metric-card{background:#fff;border:1px solid #e9ecef;border-radius:.25rem;padding:1rem;height:100%;box-shadow:var(--ag-shadow)}
+    .metric-card{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-radius:.35rem;padding:1rem;height:100%;box-shadow:var(--ag-card-shadow)}
     .metric-value{font-size:1.45rem;font-weight:600;color:var(--ag-heading);line-height:1.15}
-    .location-panel{background:#fff;border:1px solid #e9ecef;border-radius:.25rem;padding:1rem;height:100%}
+    .location-panel{background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-radius:.45rem;padding:1rem;height:100%;box-shadow:var(--ag-card-shadow)}
     .location-source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
     .location-source{border:1px solid #dee2e6;border-radius:.35rem;padding:1rem;cursor:pointer;background:#fff;min-height:122px;transition:border-color .15s,box-shadow .15s,background .15s,transform .15s}
     .location-source:hover{border-color:#9fc2f3;background:#f8fbff;transform:translateY(-1px)}
@@ -131,7 +135,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .location-source p{margin:0;color:var(--ag-muted);line-height:1.45}
     .location-source .form-check-input{margin-top:.15rem;flex:0 0 auto}
     .data-source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
-    .data-source-card{position:relative;border:1px solid #dee2e6;border-radius:.35rem;background:#fff;padding:1rem;cursor:pointer;min-height:178px;display:flex;flex-direction:column;gap:.75rem;transition:border-color .15s,box-shadow .15s,background .15s,transform .15s}
+    .data-source-card{position:relative;border:1px solid var(--ag-line);border-radius:.45rem;background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));padding:1rem;cursor:pointer;min-height:178px;display:flex;flex-direction:column;gap:.75rem;box-shadow:var(--ag-card-shadow);transition:border-color .15s,box-shadow .15s,background .15s,transform .15s}
     .data-source-card:hover{border-color:#9fc2f3;background:#f8fbff;transform:translateY(-1px)}
     .data-source-card.active{border-color:var(--ag-primary);box-shadow:inset 3px 0 0 var(--ag-primary),var(--ag-shadow);background:#f8fbff}
     .data-source-card .source-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem}
@@ -141,9 +145,27 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .source-badges{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:auto}
     .source-badge{border:1px solid #d8e4f3;background:#f5f9ff;color:#315f97;border-radius:999px;padding:.2rem .55rem;font-size:.72rem;font-weight:600}
     .data-source-card .form-check-input{margin-top:.15rem}
-    .service-card{height:100%;background:#fff;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem;box-shadow:var(--ag-shadow)}
+    .service-card{height:100%;background:linear-gradient(180deg,var(--ag-panel),var(--ag-subtle));border:1px solid var(--ag-line);border-radius:.45rem;padding:1rem;box-shadow:var(--ag-card-shadow)}
     .service-card h3{font-size:1rem;margin:0;color:var(--ag-heading);font-weight:600}
     .service-card .service-icon{width:2.25rem;height:2.25rem;border-radius:.35rem;background:#f8f9fa;border:1px solid #e9ecef;display:grid;place-items:center;color:#495057}
+    .wifi-status-card{min-height:100%;display:flex;flex-direction:column;gap:1rem}
+    .wifi-status-symbol{width:3.25rem;height:3.25rem;border-radius:.65rem;display:grid;place-items:center;background:#eef5ff;color:var(--ag-primary);font-size:1.5rem;border:1px solid #dbeafe}
+    .wifi-network-name{font-size:1.35rem;font-weight:600;color:var(--ag-heading);line-height:1.15;word-break:break-word}
+    .wifi-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin-top:auto}
+    .wifi-meta-item{background:var(--ag-panel);border:1px solid var(--ag-line);border-radius:.4rem;padding:.75rem}
+    .wifi-action-card{min-height:100%}
+    .wifi-network-list{display:flex;flex-direction:column;gap:.65rem}
+    .wifi-network-item{width:100%;border:1px solid var(--ag-line);border-radius:.45rem;background:var(--ag-panel);padding:.85rem 1rem;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;transition:border-color .15s,box-shadow .15s,background .15s,transform .15s}
+    .wifi-network-item:hover{border-color:#9fc2f3;background:var(--ag-hover);transform:translateY(-1px)}
+    .wifi-network-item.active{border-color:var(--ag-primary);box-shadow:inset 4px 0 0 var(--ag-primary),var(--ag-shadow);background:var(--ag-hover)}
+    .wifi-network-name-row{display:flex;align-items:center;gap:.65rem;min-width:0}
+    .wifi-network-ssid{font-weight:600;color:var(--ag-heading);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .wifi-strength{min-width:132px}
+    .wifi-strength-bars{height:22px;display:flex;align-items:end;justify-content:flex-end;gap:3px}
+    .wifi-strength-bars span{width:6px;border-radius:2px;background:#cbd5e1}
+    .wifi-strength-bars span:nth-child(1){height:7px}.wifi-strength-bars span:nth-child(2){height:11px}.wifi-strength-bars span:nth-child(3){height:15px}.wifi-strength-bars span:nth-child(4){height:19px}
+    .wifi-strength-bars[data-level="1"] span:nth-child(-n+1),.wifi-strength-bars[data-level="2"] span:nth-child(-n+2),.wifi-strength-bars[data-level="3"] span:nth-child(-n+3),.wifi-strength-bars[data-level="4"] span:nth-child(-n+4){background:#22c55e}
+    .wifi-network-detail{color:var(--ag-muted);font-size:.78rem}
     .source-helper{background:#f8f9fa;border:1px solid #e9ecef;border-radius:.35rem;padding:1rem}
     #locationMap{height:520px;min-height:360px;border-radius:.25rem;border:1px solid #dee2e6;overflow:hidden;background:#e9ecef}
     .map-readout{border:1px solid #e9ecef;border-radius:.25rem;background:#f8f9fa;padding:.75rem}
@@ -160,7 +182,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     .btn{border-radius:.25rem;font-weight:500;min-height:38px}.btn-primary{background:var(--ag-primary);border-color:var(--ag-primary)}.btn-primary:hover,.btn-primary:focus{background:var(--ag-primary-dark);border-color:var(--ag-primary-dark)}.btn-outline-primary{color:var(--ag-primary);border-color:var(--ag-primary)}.btn-outline-primary:hover{background:var(--ag-primary);border-color:var(--ag-primary)}.btn-outline-secondary{border-color:#ced4da;color:#495057}.btn-outline-secondary:hover{background:#f8f9fa;border-color:#adb5bd;color:#212529}
     .badge{font-weight:600}
     html[data-theme=dark] .app-header,html[data-theme=dark] .settings-layout-card,html[data-theme=dark] .settings-card,html[data-theme=dark] .tab-pane>.section-title,html[data-theme=dark] .editor-intro,html[data-theme=dark] .range-row,html[data-theme=dark] .notify-row,html[data-theme=dark] .dashboard-panel,html[data-theme=dark] .dashboard-section,html[data-theme=dark] .dashboard-mini-card,html[data-theme=dark] .style-group,html[data-theme=dark] .style-tab-content,html[data-theme=dark] .display-card,html[data-theme=dark] .metric-card,html[data-theme=dark] .location-panel,html[data-theme=dark] .location-source,html[data-theme=dark] .data-source-card,html[data-theme=dark] .service-card{background:var(--ag-card);border-color:var(--ag-line);color:var(--ag-text)}
-    html[data-theme=dark] .status-card,html[data-theme=dark] .range-field-card,html[data-theme=dark] .notify-switches .form-switch,html[data-theme=dark] .source-helper,html[data-theme=dark] .map-readout,html[data-theme=dark] .screenshot-loading-box{background:var(--ag-subtle)!important;border-color:var(--ag-line)!important;color:var(--ag-text)}
+    html[data-theme=dark] .status-card,html[data-theme=dark] .range-field-card,html[data-theme=dark] .notify-switches .form-switch,html[data-theme=dark] .source-helper,html[data-theme=dark] .map-readout,html[data-theme=dark] .screenshot-loading-box,html[data-theme=dark] .ajax-loading-box{background:var(--ag-subtle)!important;border-color:var(--ag-line)!important;color:var(--ag-text)}
     html[data-theme=dark] .settings-card,html[data-theme=dark] .settings-card{border-color:var(--ag-line)}
     html[data-theme=dark] .range-row .editor-card-head,html[data-theme=dark] .notify-row .editor-card-head,html[data-theme=dark] .tab-pane>.section-title,html[data-theme=dark] .style-row,html[data-theme=dark] .app-header{border-color:var(--ag-line)!important}
     html[data-theme=dark] .brand-title,html[data-theme=dark] .page-title,html[data-theme=dark] .section-title h2,html[data-theme=dark] .editor-intro h3,html[data-theme=dark] .editor-card-title h3,html[data-theme=dark] .dashboard-section h2,html[data-theme=dark] .display-card-head h3,html[data-theme=dark] .location-source h3,html[data-theme=dark] .data-source-card h3,html[data-theme=dark] .service-card h3,html[data-theme=dark] .metric-value,html[data-theme=dark] .h5{color:var(--ag-heading)!important}
@@ -171,8 +193,9 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     html[data-theme=dark] .form-control:disabled,html[data-theme=dark] .form-select:disabled{background-color:#111827;color:#64748b}
     html[data-theme=dark] .form-check.form-switch{background:var(--ag-card);border-color:var(--ag-line)}
     html[data-theme=dark] .location-source:hover,html[data-theme=dark] .data-source-card:hover,html[data-theme=dark] .location-source.active,html[data-theme=dark] .data-source-card.active{background:var(--ag-hover);border-color:var(--ag-primary)}
-    html[data-theme=dark] .editor-card-icon,html[data-theme=dark] .location-source .source-icon,html[data-theme=dark] .data-source-card .source-icon{background:#1e3a5f;color:#bfdbfe}
-    html[data-theme=dark] .service-card .service-icon{background:var(--ag-subtle);border-color:var(--ag-line);color:var(--ag-text)}
+    html[data-theme=dark] .editor-card-icon,html[data-theme=dark] .section-icon,html[data-theme=dark] .location-source .source-icon,html[data-theme=dark] .data-source-card .source-icon{background:#1e3a5f;color:#bfdbfe;border-color:#244a78}
+    html[data-theme=dark] .service-card .service-icon,html[data-theme=dark] .wifi-status-symbol{background:#1e3a5f;border-color:#244a78;color:#bfdbfe}
+    html[data-theme=dark] .wifi-meta-item,html[data-theme=dark] .wifi-network-item{background:var(--ag-subtle);border-color:var(--ag-line)}
     html[data-theme=dark] .source-badge{background:#172554;border-color:#1d4ed8;color:#bfdbfe}
     html[data-theme=dark] .style-tabs{border-bottom-color:var(--ag-line)}
     html[data-theme=dark] .style-tabs .nav-link{color:var(--ag-text)}
@@ -188,7 +211,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     html[data-theme=dark] .btn-outline-secondary:hover{background:var(--ag-subtle);border-color:var(--ag-muted);color:var(--ag-heading)}
     html[data-theme=dark] .btn-outline-primary{color:var(--ag-primary);border-color:var(--ag-primary)}
     html[data-theme=dark] .screenshot-frame{background:var(--ag-panel);border-color:var(--ag-line)}
-    html[data-theme=dark] .screenshot-loading{background:rgba(15,23,42,.82)}
+    html[data-theme=dark] .screenshot-loading,html[data-theme=dark] .ajax-loading{background:rgba(15,23,42,.82)}
     html[data-theme=dark] .dt-container .dt-input{background-color:var(--ag-input);border-color:var(--ag-input-border);color:var(--ag-heading)}
     @media (max-width:1199.98px){.sidebar-col{width:76px;flex-basis:76px}.content-col{width:calc(100% - 76px);flex-basis:calc(100% - 76px)}.nav-card .card-header{padding:1rem .65rem}.nav-brand{justify-content:center;margin-bottom:0}.nav-brand span,.nav-card .small-label,.nav-pills .nav-label{display:none}.nav-pills .nav-link{justify-content:center;padding:.85rem .5rem}.nav-pills .nav-link.active{box-shadow:inset 0 0 0 1px rgba(59,125,221,.55)}.nav-pills .nav-icon{font-size:1.2rem}}
     @media (max-width:991.98px){html,body{height:auto;min-height:100%;overflow:auto}.nav-card{min-height:100vh;border-radius:0}.content-wrap{height:auto;min-height:calc(100vh - 64px);padding:1rem;overflow:visible}.settings-layout-card{height:auto}.settings-card{height:auto}.settings-card>.tab-pane{height:auto;max-height:none}.brand-logo{width:34px;height:34px}.brand-logo svg{width:29px;height:29px}.settings-card{border-left:1px solid #edf0f2;border-top:0}#locationMap{height:420px}.location-source-grid,.data-source-grid,.editor-grid,.notify-switches,.range-fields{grid-template-columns:1fr}}
@@ -246,7 +269,10 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
           <div class="tab-content settings-card card">
     <section class="tab-pane fade" id="general">
       <div class="section-title">
-        <div><h2>Radar centre and startup range</h2><p>Choose the radar origin and the range used when the device starts.</p></div>
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-geo-alt"></i></div>
+          <div><h2>Radar centre and startup range</h2><p>Choose the radar origin and the range used when the device starts.</p></div>
+        </div>
         <div class="section-actions"><button class="btn btn-primary save-settings">Save Location</button></div>
       </div>
       <div class="row g-4">
@@ -347,7 +373,10 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     </section>
     <section class="tab-pane fade" id="apiKeys">
       <div class="section-title">
-        <div><h2>Aircraft feeds and external APIs</h2><p>Choose the live aircraft feed and manage optional service keys used by the radar.</p></div>
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-database"></i></div>
+          <div><h2>Aircraft feeds and external APIs</h2><p>Choose the live aircraft feed and manage optional service keys used by the radar.</p></div>
+        </div>
         <div class="section-actions"><button class="btn btn-primary save-settings">Save Data Sources</button></div>
       </div>
       <select id="dataSource" class="form-select visually-hidden" aria-label="Aircraft data source">
@@ -454,7 +483,10 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     </section>
     <section class="tab-pane fade" id="colours">
       <div class="section-title">
-        <div><h2>Visual elements</h2><p>Tune colour, visibility, line width, tick spacing, and radar geometry by group.</p></div>
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-palette"></i></div>
+          <div><h2>Visual elements</h2><p>Tune colour, visibility, line width, tick spacing, and radar geometry by group.</p></div>
+        </div>
         <div class="section-actions">
           <button class="btn btn-primary save-settings">Save Display</button>
           <button id="resetAppearance" class="btn btn-outline-secondary" type="button">Reset all display styling</button>
@@ -464,51 +496,132 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
     </section>
     <section class="tab-pane fade" id="notifications">
       <div class="section-title">
-        <div><h2>Aircraft type alerts</h2><p>Highlight matching aircraft types and show alert text on the radar display.</p></div>
-        <div class="section-actions"><button class="btn btn-primary save-settings">Save Notifications</button></div>
-      </div>
-      <div class="editor-intro">
-        <div class="d-flex align-items-start gap-3">
-          <div class="editor-card-icon"><i class="bi bi-bell"></i></div>
-          <div><h3>Notification rules</h3><p>Match aircraft by type substring, colour them on the radar, keep their labels visible, and show optional banner text.</p></div>
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-bell"></i></div>
+          <div><h2>Notification rules</h2><p>Highlight matching aircraft types, keep their labels visible, and show optional banner text.</p></div>
         </div>
+        <div class="section-actions"><button class="btn btn-primary save-settings">Save Notifications</button></div>
       </div>
       <div id="notificationRows" class="notification-list"></div>
     </section>
     <section class="tab-pane fade" id="ranges">
       <div class="section-title">
-        <div><h2>Range presets and refresh rates</h2><p>Set the selectable ranges, data refresh intervals, and label density.</p></div>
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-broadcast-pin"></i></div>
+          <div><h2>Selectable radar ranges</h2><p>Set the range shown on the device, aircraft refresh interval, and label density for each preset.</p></div>
+        </div>
         <div class="section-actions">
           <button class="btn btn-primary save-settings">Save Ranges</button>
           <button id="resetRanges" class="btn btn-outline-secondary" type="button">Reset ranges</button>
-        </div>
-      </div>
-      <div class="editor-intro">
-        <div class="d-flex align-items-start gap-3">
-          <div class="editor-card-icon"><i class="bi bi-bullseye"></i></div>
-          <div><h3>Selectable radar ranges</h3><p>Each preset controls the range shown on the device, how often aircraft data refreshes, and how many labels can be drawn.</p></div>
         </div>
       </div>
       <div id="rangeRows" class="range-list"></div>
     </section>
     <section class="tab-pane fade" id="wifi">
       <div class="section-title">
-        <div><h2>Network connection</h2><p>Scan for nearby networks and store credentials on the device.</p></div>
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-wifi"></i></div>
+          <div><h2>Network connection</h2><p>Scan for nearby networks and store credentials on the device.</p></div>
+        </div>
         <div class="section-actions">
           <button id="scanWifi" class="btn btn-outline-primary" type="button">Scan</button>
           <button id="saveWifi" class="btn btn-primary" type="button">Save WiFi</button>
         </div>
       </div>
-      <div class="mb-3"><span class="small-label">Current network</span><div id="currentWifi" class="fw-semibold"></div></div>
-      <div class="row g-3">
-        <div class="col-md-5"><label class="form-label">Network</label><select id="wifiSsid" class="form-select"><option value="">Scan to load networks</option></select></div>
-        <div class="col-md-4"><label class="form-label">Manual SSID</label><input id="wifiManual" maxlength="32" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Password</label><input id="wifiPassword" type="password" maxlength="64" class="form-control"></div>
+      <div class="row g-4">
+        <div class="col-xl-4">
+          <div class="display-card wifi-status-card">
+            <div class="d-flex align-items-start gap-3">
+              <div class="wifi-status-symbol"><i class="bi bi-wifi"></i></div>
+              <div class="flex-grow-1">
+                <div class="small-label">Current connection</div>
+                <div id="currentWifi" class="wifi-network-name">Not configured</div>
+                <span id="wifiStateBadge" class="badge rounded-pill text-bg-secondary mt-2">Unknown</span>
+              </div>
+            </div>
+            <p class="text-muted mb-0">The radar stores one station-mode WiFi network. Saving new credentials will be used by the device on its next connection attempt.</p>
+            <div class="wifi-meta-grid">
+              <div class="wifi-meta-item">
+                <div class="small-label">IP address</div>
+                <div id="wifiIp" class="fw-semibold">--</div>
+              </div>
+              <div class="wifi-meta-item">
+                <div class="small-label">Driver</div>
+                <div id="wifiDriverState" class="fw-semibold">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-8">
+          <div class="row g-4">
+            <div class="col-12">
+              <div class="display-card wifi-action-card">
+                <div class="display-card-head">
+                  <div class="editor-card-icon"><i class="bi bi-broadcast-pin"></i></div>
+                  <div>
+                    <h3>Choose a network</h3>
+                    <p>Scan for nearby access points, then select one from the list. Hidden networks can be entered manually below.</p>
+                  </div>
+                </div>
+                <select id="wifiSsid" class="form-select visually-hidden" aria-label="Selected scanned network"><option value="">Scan to load networks</option></select>
+                <div class="row g-3 align-items-end">
+                  <div class="col-lg-8">
+                    <div class="small-label">Available networks</div>
+                    <div id="wifiScanDetail" class="form-text mt-1">Scan to show nearby networks with signal strength, security, and channel details.</div>
+                  </div>
+                  <div class="col-lg-4">
+                    <button id="scanWifiInline" class="btn btn-outline-primary w-100" type="button"><i class="bi bi-arrow-clockwise me-1"></i>Scan networks</button>
+                  </div>
+                  <div class="col-12">
+                    <div id="wifiNetworkList" class="wifi-network-list">
+                      <div class="wifi-network-item">
+                        <div>
+                          <div class="wifi-network-name-row"><i class="bi bi-wifi text-muted"></i><span class="wifi-network-ssid text-muted">No scan results yet</span></div>
+                          <div class="wifi-network-detail">Use Scan networks to find nearby access points.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="display-card wifi-action-card">
+                <div class="display-card-head">
+                  <div class="editor-card-icon"><i class="bi bi-key"></i></div>
+                  <div>
+                    <h3>Credentials</h3>
+                    <p>Use the selected network, or enter a manual SSID for hidden or unlisted networks.</p>
+                  </div>
+                </div>
+                <div class="row g-3 align-items-end">
+                  <div class="col-lg-5">
+                    <label class="form-label" for="wifiManual">Manual SSID</label>
+                    <input id="wifiManual" maxlength="32" class="form-control" placeholder="Leave blank to use scanned network">
+                  </div>
+                  <div class="col-lg-5">
+                    <label class="form-label" for="wifiPassword">Password</label>
+                    <input id="wifiPassword" type="password" maxlength="64" class="form-control" autocomplete="new-password" placeholder="Network password">
+                  </div>
+                  <div class="col-lg-2">
+                    <button id="saveWifiInline" class="btn btn-primary w-100" type="button"><i class="bi bi-check2 me-1"></i>Save</button>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-text">For open networks, leave the password blank. The password is not displayed after saving.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
     <section class="tab-pane fade show active" id="espStatus">
       <div class="section-title">
-        <div><h2>Dashboard</h2><p>Live device telemetry, heap usage, active caches, network state, and data pipeline status.</p></div>
+        <div class="section-heading">
+          <div class="section-icon"><i class="bi bi-speedometer2"></i></div>
+          <div><h2>Dashboard</h2><p>Live device telemetry, heap usage, active caches, network state, and data pipeline status.</p></div>
+        </div>
         <div class="section-actions"><button id="refreshDeviceStatus" class="btn btn-outline-primary" type="button">Refresh</button></div>
       </div>
       <ul class="nav style-tabs mb-0" id="statusSubTabs" role="tablist">
@@ -669,6 +782,7 @@ const styleDefs={
   radar_axis:{label:'Main axis lines',width:true,visible:true},
   country_boundary:{label:'Country outlines',width:true,visible:true},
   airport:{label:'Airport markers',width:true,visible:true},
+  airport_weather:{label:'Airport weather icons'},
   runway:{label:'Airport runways',width:true,visible:true},
   sweep:{label:'Sweep line',width:true,visible:true},
   control_arc:{label:'Button arcs',width:true,visible:true},range_label:{label:'Range labels'},heading_label:{label:'Compass labels'},button_text:{label:'Button text'},button_status:{label:'Status button text'},button_pressed:{label:'Button press fill'},
@@ -691,7 +805,7 @@ const styleGroups=[
   {id:'screen',label:'Screen',keys:['screen_bg','radar_bg','radar_glow','portal_bg']},
   {id:'radar',label:'Radar Lines',keys:['radar_bright','radar_grid','radar_radial','radar_axis','sweep']},
   {id:'ticks',label:'Ticks',keys:['radar_tick_medium','radar_tick_minor']},
-  {id:'map',label:'Map And Airports',keys:['country_boundary','airport','runway'],labelStyles:['airport']},
+  {id:'map',label:'Map And Airports',keys:['country_boundary','airport','airport_weather','runway'],labelStyles:['airport']},
   {id:'controls',label:'Controls And Labels',keys:['control_arc','range_label','heading_label','button_text','button_status','button_pressed'],labelStyles:['range_label','heading_label','button']},
   {id:'aircraft',label:'Aircraft',keys:['aircraft_normal','aircraft_stale','aircraft_low','aircraft_emergency','aircraft_hit','climb_triangle','descent_triangle','aircraft_heading'],labelStyles:['aircraft','aircraft_notification']},
   {id:'altitude',label:'Altitude Colours',keys:['ground','below_2000','below_10000','below_20000','below_30000','below_40000','above_40000']},
@@ -751,6 +865,31 @@ function refreshLocationMap(pan){
 }
 	// Update the header badge with the current settings action state.
 	function status(text, cls){ $('#saveStatus').removeClass().addClass('badge rounded-pill text-bg-'+(cls||'secondary')).text(text); }
+function loadingTarget(){ return $('.settings-card>.tab-pane.active').first(); }
+function setAjaxLoading(target,active,message){
+  let host=$(target);
+  if(!host.length) host=loadingTarget();
+  if(!host.length) return;
+  if(active){
+    if(host.css('position')==='static') host.css('position','relative');
+    let overlay=host.children('.ajax-loading');
+    if(!overlay.length){
+      overlay=$(`<div class="ajax-loading" aria-live="polite" aria-busy="true"><div class="ajax-loading-box"><div class="spinner-border text-primary mb-3" role="status" aria-hidden="true"></div><div class="fw-semibold ajax-loading-title">Working...</div><div class="text-muted small ajax-loading-message"></div></div></div>`);
+      host.append(overlay);
+    }
+    overlay.find('.ajax-loading-message').text(message||'Please wait.');
+    overlay.addClass('active');
+  } else {
+    host.children('.ajax-loading').removeClass('active');
+  }
+}
+function withAjaxLoading(target,message,request){
+  setAjaxLoading(target,true,message);
+  let req=typeof request==='function'?request():request;
+  if(req&&req.always) req.always(()=>setAjaxLoading(target,false));
+  else setAjaxLoading(target,false);
+  return req;
+}
 	// Format a byte count for compact status cards and tables.
 	function fmtBytes(v){ v=Number(v)||0; if(v<1024) return `${v} B`; if(v<1048576) return `${(v/1024).toFixed(1)} KB`; return `${(v/1048576).toFixed(2)} MB`; }
 	// Format uptime seconds into a short human-readable duration.
@@ -838,6 +977,7 @@ function refreshLocationMap(pan){
     kvCard('Recovery',wifi.recovering?'Recovering':'Idle','HTTP fetches do not reset WiFi automatically'),
     kvCard('Tasks',String(data.taskCount||0),`${data.chipCores||0} cores, rev ${data.chipRevision||0}`)
   ].join(''));
+  updateWifiCard(wifi);
   $('#aircraftStatusSummary').html([
     metricCard('Data source',ac.source||'--',ac.localUrl||ac.filter||''),
     metricCard('Targets',`${ac.latestCount||0}`,`${ac.uiCount||0} displayed`),
@@ -894,6 +1034,11 @@ function labelStyleRow(key,data){
   let fontHtml=d.font===false?'':`<div class="col-sm-4 col-md-3 col-xl-2"><label class="form-label">Font</label><select class="form-select label-font-value" data-key="${key}"><option value="montserrat" ${font==='montserrat'?'selected':''}>Montserrat</option><option value="default" ${font==='default'?'selected':''}>LVGL default</option></select></div>`;
   return `<div class="style-row"><div class="row g-3 align-items-end"><div class="col-sm-5 col-md-3 col-xl-2"><span class="small-label">${esc(d.label)}</span>${d.help?`<div class="form-text">${esc(d.help)}</div>`:''}</div>${fontHtml}<div class="col-sm-3 col-md-2"><label class="form-label">Size</label><div class="input-group"><input class="form-control label-size-value" type="number" min="10" max="22" data-key="${key}" value="${size}"><span class="input-group-text">px</span></div></div></div></div>`;
 }
+	// Build extra airport-weather controls that belong with the map styling options.
+function airportWeatherStyleRow(data){
+  let size=clampRange(data.interface&&data.interface.airportWeatherIconSize,8,28);
+  return `<div class="style-row"><div class="row g-3 align-items-end"><div class="col-sm-5 col-md-3 col-xl-2"><span class="small-label">Airport weather icon size</span><div class="form-text">Controls the glyph size beside airport markers.</div></div><div class="col-sm-3 col-md-2"><label class="form-label">Size</label><div class="input-group"><input id="airportWeatherIconSize" class="form-control" type="number" min="8" max="28" value="${size}"><span class="input-group-text">px</span></div></div></div></div>`;
+}
 	// Render the tabbed UI styling editor from the style group definitions.
 function renderStyleGroups(data){
   let root=$('#styleGroups').empty();
@@ -902,9 +1047,6 @@ function renderStyleGroups(data){
   tabs.append('<li class="nav-item" role="presentation"><button class="nav-link active" id="style-tab-display" data-bs-toggle="tab" data-bs-target="#displayPane" type="button" role="tab" aria-controls="displayPane" aria-selected="true">Display</button></li>');
   content.append(`<div class="tab-pane fade show active" id="displayPane" role="tabpanel" aria-labelledby="style-tab-display" tabindex="0">
     <div class="style-group">
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div><h2 class="h5 mb-1">Display</h2><div class="text-muted small">Radar layers, sweep behaviour, and aircraft movement indicators</div></div>
-      </div>
       <div class="row g-3">
         <div class="col-xl-6">
           <div class="display-card">
@@ -914,9 +1056,9 @@ function renderStyleGroups(data){
               <div class="col-md-6"><label class="form-label" for="sweepStepDeg">Sweep step</label><div class="input-group"><input id="sweepStepDeg" class="form-control" type="number" min="1" max="30"><span class="input-group-text">deg</span></div><div class="form-text">Degrees advanced each redraw.</div></div>
               <div class="col-md-6"><label class="form-label" for="sweepDrawIntervalMs">Draw interval</label><div class="input-group"><input id="sweepDrawIntervalMs" class="form-control" type="number" min="10" max="250"><span class="input-group-text">ms</span></div><div class="form-text">Lower values use more CPU.</div></div>
               <div class="col-12 form-check form-switch"><input id="showSweepTrail" class="form-check-input" type="checkbox"><label class="form-check-label" for="showSweepTrail">Show fading trail</label></div>
-              <div class="col-md-4"><label class="form-label" for="sweepTrailCount">Trail lines</label><input id="sweepTrailCount" class="form-control" type="number" min="0" max="50"></div>
-              <div class="col-md-4"><label class="form-label" for="sweepTrailStepDeg">Trail step</label><div class="input-group"><input id="sweepTrailStepDeg" class="form-control" type="number" min="0.1" max="10" step="0.1"><span class="input-group-text">deg</span></div><div class="form-text">Spacing between faded lines.</div></div>
-              <div class="col-md-4"><label class="form-label" for="sweepTrailWidth">Trail width</label><div class="input-group"><input id="sweepTrailWidth" class="form-control" type="number" min="1" max="40"><span class="input-group-text">px</span></div></div>
+              <div class="col-md-4"><label class="form-label" for="sweepTrailCount">Trail length</label><input id="sweepTrailCount" class="form-control" type="number" min="0" max="50"><div class="form-text">Multiplied by the fade step to set the sector length.</div></div>
+              <div class="col-md-4"><label class="form-label" for="sweepTrailStepDeg">Fade step</label><div class="input-group"><input id="sweepTrailStepDeg" class="form-control" type="number" min="0.1" max="10" step="0.1"><span class="input-group-text">deg</span></div><div class="form-text">Angular fade added per trail unit.</div></div>
+              <div class="col-md-4"><label class="form-label" for="sweepTrailWidth">Trail strength</label><input id="sweepTrailWidth" class="form-control" type="number" min="1" max="40"><div class="form-text">Controls the maximum trail opacity.</div></div>
             </div>
           </div>
         </div>
@@ -925,9 +1067,11 @@ function renderStyleGroups(data){
             <div class="display-card-head"><div class="editor-card-icon"><i class="bi bi-layers"></i></div><div><h3>Radar layers</h3><p>Choose which map and contextual layers are drawn on the radar face.</p></div></div>
             <div class="row g-3">
               <div class="col-md-6 form-check form-switch"><input id="showAirports" class="form-check-input" type="checkbox"><label class="form-check-label" for="showAirports">Show airports</label></div>
+              <div class="col-md-6 form-check form-switch"><input id="showAirportWeather" class="form-check-input" type="checkbox"><label class="form-check-label" for="showAirportWeather">Show airport weather</label></div>
               <div class="col-md-6 form-check form-switch"><input id="showRunways" class="form-check-input" type="checkbox"><label class="form-check-label" for="showRunways">Show selected airport runways</label></div>
               <div class="col-md-6 form-check form-switch"><input id="showCountries" class="form-check-input" type="checkbox"><label class="form-check-label" for="showCountries">Show country outlines</label></div>
               <div class="col-md-6 form-check form-switch"><input id="emergencyRed" class="form-check-input" type="checkbox"><label class="form-check-label" for="emergencyRed">Emergency squawks in red</label></div>
+              <div class="col-md-6"><label class="form-label" for="airportWeatherRefreshMin">Weather refresh</label><div class="input-group"><input id="airportWeatherRefreshMin" class="form-control" type="number" min="5" max="180"><span class="input-group-text">min</span></div><div class="form-text">Open-Meteo weather refresh interval.</div></div>
               <div class="col-md-6 form-check form-switch"><input id="showAircraftRoutes" class="form-check-input" type="checkbox"><label class="form-check-label" for="showAircraftRoutes">Show route in aircraft popup</label></div>
               <div class="col-md-6"><label class="form-label" for="routeStyle">Route display</label><select id="routeStyle" class="form-select"><option value="short">Short route codes</option><option value="long">Long airport names</option></select></div>
             </div>
@@ -971,6 +1115,9 @@ function renderStyleGroups(data){
   </div>`);
   $('#showSweep',content).prop('checked',data.interface.showSweep);
   $('#showAirports',content).prop('checked',data.interface.showAirports);
+  $('#showAirportWeather',content).prop('checked',!!data.interface.showAirportWeather);
+  $('#airportWeatherRefreshMin',content).val(data.interface.airportWeatherRefreshMin ?? 15);
+  $('#airportWeatherIconSize',content).val(data.interface.airportWeatherIconSize ?? 14);
   $('#showRunways',content).prop('checked',!!data.interface.showAirportRunways);
   $('#showCountries',content).prop('checked',data.interface.showCountries);
   $('#emergencyRed',content).prop('checked',data.interface.emergencyRed);
@@ -1015,6 +1162,7 @@ function renderStyleGroups(data){
     let pane=$(`<div class="tab-pane fade" id="style-pane-${g.id}" role="tabpanel" aria-labelledby="style-tab-${g.id}" tabindex="0"></div>`);
     let box=$(`<div class="style-group" data-group="${g.id}"><div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><h2 class="h5 mb-1">${esc(g.label)}</h2><button class="btn btn-sm btn-outline-secondary reset-style-group" type="button" data-group="${g.id}">Reset group</button></div></div>`);
     g.keys.forEach(k=>box.append(styleRow(k,data)));
+    if(g.id==='map') box.append(airportWeatherStyleRow(data));
     (g.labelStyles||[]).forEach(k=>box.append(labelStyleRow(k,data)));
     pane.append(box);
     content.append(pane);
@@ -1022,9 +1170,9 @@ function renderStyleGroups(data){
   root.append(tabs,content);
 }
 	// Build one range preset row.
-	function rangeRow(i,r){ r=r||{}; let miles=r.miles||''; return `<div class="range-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-broadcast"></i></div><div><h3>Range ${i+1}</h3><p>${miles?`${miles} mile preset with ${r.refresh||10} second refresh`:'Unused preset slot'}</p></div></div><span class="badge rounded-pill ${miles?'text-bg-primary':'text-bg-light text-muted'}">${miles?`${miles} MI`:'Unused'}</span></div><div class="range-fields"><div class="range-field-card"><label class="form-label"><i class="bi bi-bullseye"></i>Range distance</label><div class="input-group"><input class="form-control range-miles" type="number" min="0" max="250" value="${miles}"><span class="input-group-text">MI</span></div><div class="form-text">Set to 0 to leave this preset unused.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-arrow-clockwise"></i>Aircraft refresh</label><div class="input-group"><input class="form-control range-refresh" type="number" min="2" max="300" value="${r.refresh||10}"><span class="input-group-text">sec</span></div><div class="form-text">How often data is fetched at this range.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-tags"></i>Visible labels</label><input class="form-control range-labels" type="number" min="0" max="50" value="${r.labels??24}"><div class="form-text">Notification matches are still labelled.</div></div></div></div>`; }
+		function rangeRow(i,r){ r=r||{}; let miles=r.miles||'', history=!!r.historyTrail; return `<div class="range-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-broadcast"></i></div><div><h3>Range ${i+1}</h3><p>${miles?`${miles} mile preset with ${r.refresh||10} second refresh`:'Unused preset slot'}</p></div></div><span class="badge rounded-pill ${miles?'text-bg-primary':'text-bg-light text-muted'}">${miles?`${miles} MI`:'Unused'}</span></div><div class="range-fields"><div class="range-field-card"><label class="form-label"><i class="bi bi-bullseye"></i>Range distance</label><div class="input-group"><input class="form-control range-miles" type="number" min="0" max="250" value="${miles}"><span class="input-group-text">MI</span></div><div class="form-text">Set to 0 to leave this preset unused.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-arrow-clockwise"></i>Aircraft refresh</label><div class="input-group"><input class="form-control range-refresh" type="number" min="2" max="300" value="${r.refresh||10}"><span class="input-group-text">sec</span></div><div class="form-text">How often data is fetched at this range.</div></div><div class="range-field-card"><label class="form-label"><i class="bi bi-tags"></i>Visible labels</label><input class="form-control range-labels" type="number" min="0" max="50" value="${r.labels??24}"><div class="form-text">Notification matches are still labelled.</div></div><div class="range-field-card"><div class="form-check form-switch"><input class="form-check-input range-history" type="checkbox" ${history?'checked':''}><label class="form-check-label">Aircraft history trail</label></div><div class="form-text">Show the last 10 received positions for aircraft at this range.</div></div></div></div>`; }
 	// Build one aircraft notification rule row.
-	function notifyRow(i,n){ n=n||{}; let enabled=n.enabled!==false,bold=!!n.boldText,dim=!!n.dimOthers,type=esc(n.type||''),text=esc(n.text||''); return `<div class="notify-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-airplane"></i></div><div><h3>Notification ${i+1}</h3><p>${type?`Aircraft type contains "${type}"`:'Empty rule slot'}</p></div></div><button class="btn btn-sm btn-outline-danger delete-notification" type="button">Delete</button></div><div class="notify-switches"><div class="form-check form-switch mb-0"><input class="form-check-input notify-enabled" type="checkbox" ${enabled?'checked':''}><label class="form-check-label">Enabled</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-bold" type="checkbox" ${bold?'checked':''}><label class="form-check-label">Bold label</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-dim" type="checkbox" ${dim?'checked':''}><label class="form-check-label">Dim other aircraft</label></div></div><div class="row g-3 align-items-end"><div class="col-lg-4"><label class="form-label">Aircraft type contains</label><input class="form-control notify-type" maxlength="15" placeholder="A20N, B738, C130" value="${type}"></div><div class="col-lg-6"><label class="form-label">Radar text</label><input class="form-control notify-text" maxlength="39" placeholder="Alert text shown on radar" value="${text}"></div><div class="col-lg-2"><label class="form-label">Aircraft colour</label><input class="form-control form-control-color notify-color" type="color" value="${n.color||'#ffb020'}" title="Colour"></div></div></div>`; }
+	function notifyRow(i,n){ n=n||{}; let enabled=n.enabled!==false,bold=!!n.boldText,dim=!!n.dimOthers,type=esc(n.type||''),text=esc(n.text||''); return `<div class="notify-row"><div class="editor-card-head"><div class="editor-card-title"><div class="editor-card-icon"><i class="bi bi-airplane"></i></div><div><h3>Notification ${i+1}</h3><p>${type?`Aircraft type exactly "${type}"`:'Empty rule slot'}</p></div></div><button class="btn btn-sm btn-outline-danger delete-notification" type="button">Delete</button></div><div class="notify-switches"><div class="form-check form-switch mb-0"><input class="form-check-input notify-enabled" type="checkbox" ${enabled?'checked':''}><label class="form-check-label">Enabled</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-bold" type="checkbox" ${bold?'checked':''}><label class="form-check-label">Bold label</label></div><div class="form-check form-switch mb-0"><input class="form-check-input notify-dim" type="checkbox" ${dim?'checked':''}><label class="form-check-label">Dim other aircraft</label></div></div><div class="row g-3 align-items-end"><div class="col-lg-4"><label class="form-label">Exact aircraft type</label><input class="form-control notify-type" maxlength="15" placeholder="A20N, B738, C130" value="${type}"></div><div class="col-lg-6"><label class="form-label">Radar text</label><input class="form-control notify-text" maxlength="39" placeholder="Alert text shown on radar" value="${text}"></div><div class="col-lg-2"><label class="form-label">Aircraft colour</label><input class="form-control form-control-color notify-color" type="color" value="${n.color||'#ffb020'}" title="Colour"></div></div></div>`; }
 	// Rebuild the notification editor rows from a compacted notification list.
 	function renderNotificationRows(items){ let rows=$('#notificationRows').empty(); items=items||[]; for(let i=0;i<10;i++) rows.append(notifyRow(i,items[i])); }
 	// Create the display label used by the airport autocomplete and selection state.
@@ -1043,12 +1191,24 @@ function renderStyleGroups(data){
 	function updateSourceState(){ let src=$('#centerSource').val(); $('#lat,#lon').prop('disabled',src!=='manual'); $('#gpsStatusBox').toggle(src==='gps'); $('#airportBox').toggle(src==='airport'); $('#locationBox').toggle(src==='location'); $('#showRunways').prop('disabled',src!=='airport'); if(src!=='airport') $('#showRunways').prop('checked',false); refreshLocationMap(); }
 	// Enable the local aircraft URL only when local receiver mode is selected.
 	function updateDataSourceState(){ let src=$('#dataSource').val()||'airplanes_live'; $('.data-source-card').removeClass('active'); $(`.data-source-card[data-source="${src}"]`).addClass('active'); $(`input[name="dataSourceCard"][value="${src}"]`).prop('checked',true); $('#localAircraftUrl').prop('disabled',src!=='local'); $('#localSourcePanel').toggleClass('opacity-50',src!=='local'); }
+function wifiStrength(rssi){ rssi=Number(rssi); if(!isFinite(rssi)) return {level:0,label:'Unknown'}; if(rssi>=-55) return {level:4,label:'Excellent'}; if(rssi>=-67) return {level:3,label:'Good'}; if(rssi>=-75) return {level:2,label:'Fair'}; return {level:1,label:'Weak'}; }
+function wifiAuthLabel(auth){ auth=Number(auth); if(!isFinite(auth)||auth===0) return 'Open'; if(auth>=7) return 'WPA3'; if(auth>=3) return 'WPA/WPA2'; return 'Secured'; }
+function updateWifiCard(wifi){
+  wifi=wifi||{};
+  let connected=!!wifi.connected || !!wifi.ip;
+  $('#currentWifi').text(wifi.ssid||'Not configured');
+  $('#wifiIp').text(wifi.ip||'--');
+  $('#wifiDriverState').text(connected?'Connected':(wifi.portalActive?'Portal active':(wifi.started?'Started':'Not connected')));
+  $('#wifiStateBadge').removeClass('text-bg-success text-bg-warning text-bg-danger text-bg-secondary')
+    .addClass(connected?'text-bg-success':(wifi.portalActive?'text-bg-warning':(wifi.started?'text-bg-secondary':'text-bg-danger')))
+    .text(connected?'Connected':(wifi.portalActive?'Portal active':(wifi.started?'Not connected':'Disconnected')));
+}
 	// Render the complete settings response into the page.
-	function render(data){ cfg=data; $('#centerSource').val(data.general.centerSource||'manual'); $('#lat').val(data.general.lat); $('#lon').val(data.general.lon); $('#dataSource').val(data.general.dataSource||'airplanes_live'); $('#localAircraftUrl').val(data.general.localAircraftUrl||''); $('#airportDbToken').val((data.apiKeys&&data.apiKeys.airportDbToken)||''); $('#openWeatherApiKey').val((data.apiKeys&&data.apiKeys.openWeatherApiKey)||''); renderStyleGroups(data); $('#rangeRows').empty(); for(let i=0;i<10;i++) $('#rangeRows').append(rangeRow(i,data.ranges[i])); renderNotificationRows(data.notifications||[]); rebuildDefaultRange(data.general.defaultRange); $('#currentWifi').text(data.wifi.ssid||'Not configured'); let a=data.general.airport||{}; if(a.name){ $('#airportSearch').val(airportLabel(a)); renderAirport(a); } else { $('#airportSearch').val(''); renderAirport(null); } let l=data.general.location||{}; if(l.name){ $('#locationSearch').val(locationLabel(l)); renderLocation(l); } else { $('#locationSearch').val(''); renderLocation(null); } $('#locationResults').empty(); renderGps(data.gps); updateSourceState(); updateDataSourceState(); status('Loaded','success'); setTimeout(()=>refreshLocationMap(false),120); }
+	function render(data){ cfg=data; $('#centerSource').val(data.general.centerSource||'manual'); $('#lat').val(data.general.lat); $('#lon').val(data.general.lon); $('#dataSource').val(data.general.dataSource||'airplanes_live'); $('#localAircraftUrl').val(data.general.localAircraftUrl||''); $('#airportDbToken').val((data.apiKeys&&data.apiKeys.airportDbToken)||''); $('#openWeatherApiKey').val((data.apiKeys&&data.apiKeys.openWeatherApiKey)||''); renderStyleGroups(data); $('#rangeRows').empty(); for(let i=0;i<10;i++) $('#rangeRows').append(rangeRow(i,data.ranges[i])); renderNotificationRows(data.notifications||[]); rebuildDefaultRange(data.general.defaultRange); updateWifiCard(data.wifi||{}); let a=data.general.airport||{}; if(a.name){ $('#airportSearch').val(airportLabel(a)); renderAirport(a); } else { $('#airportSearch').val(''); renderAirport(null); } let l=data.general.location||{}; if(l.name){ $('#locationSearch').val(locationLabel(l)); renderLocation(l); } else { $('#locationSearch').val(''); renderLocation(null); } $('#locationResults').empty(); renderGps(data.gps); updateSourceState(); updateDataSourceState(); status('Loaded','success'); setTimeout(()=>refreshLocationMap(false),120); }
 	// Rebuild the startup range dropdown from the current range preset rows.
 	function rebuildDefaultRange(selected){ let sel=$('#defaultRange').empty(); collectRanges().forEach(r=>{ if(r.miles>0) sel.append(`<option value="${r.miles}">${r.miles} MI</option>`); }); sel.val(String(selected||(collectRanges()[0]||{}).miles||50)); }
 	// Collect the range preset rows into the settings payload format.
-	function collectRanges(){ let ranges=[]; $('#rangeRows .range-row').each(function(){ ranges.push({miles:+$('.range-miles',this).val()||0, refresh:+$('.range-refresh',this).val()||10, labels:+$('.range-labels',this).val()||0}); }); return ranges; }
+		function collectRanges(){ let ranges=[]; $('#rangeRows .range-row').each(function(){ ranges.push({miles:+$('.range-miles',this).val()||0, refresh:+$('.range-refresh',this).val()||10, labels:+$('.range-labels',this).val()||0, historyTrail:$('.range-history',this).is(':checked')}); }); return ranges; }
 	// Collect the aircraft notification rule rows.
 	function collectNotifications(){ let items=[]; $('#notificationRows .notify-row').each(function(){ items.push({enabled:$('.notify-enabled',this).is(':checked'), boldText:$('.notify-bold',this).is(':checked'), dimOthers:$('.notify-dim',this).is(':checked'), type:$('.notify-type',this).val(), color:$('.notify-color',this).val(), text:$('.notify-text',this).val()}); }); return items; }
 	// Collect configured element colours by firmware colour key.
@@ -1064,13 +1224,13 @@ function renderStyleGroups(data){
 	// Collect configured radar label fonts and sizes.
 	function collectLabelStyles(){ let styles={}; $('.label-font-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].font=$(this).val(); }); $('.label-size-value').each(function(){ let key=$(this).data('key'); styles[key]=styles[key]||{}; styles[key].size=clampRange($(this).val(),10,22); }); return styles; }
 	// Build the complete settings payload sent to the ESP32.
-	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked'), hardware:{enabled:$('#hardwareControlsEnabled').is(':checked'), showHints:$('#hardwareShowHints').is(':checked'), menuTimeoutSec:+$('#hardwareMenuTimeoutSec').val()||15, rotaryAction:$('#hardwareRotaryAction').val(), confirmAction:$('#hardwareConfirmAction').val(), backAction:$('#hardwareBackAction').val(), pushAction:$('#hardwarePushAction').val()}}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
+	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportWeather:$('#showAirportWeather').is(':checked'), airportWeatherRefreshMin:+$('#airportWeatherRefreshMin').val()||15, airportWeatherIconSize:+$('#airportWeatherIconSize').val()||14, showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked'), hardware:{enabled:$('#hardwareControlsEnabled').is(':checked'), showHints:$('#hardwareShowHints').is(':checked'), menuTimeoutSec:+$('#hardwareMenuTimeoutSec').val()||15, rotaryAction:$('#hardwareRotaryAction').val(), confirmAction:$('#hardwareConfirmAction').val(), backAction:$('#hardwareBackAction').val(), pushAction:$('#hardwarePushAction').val()}}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
 	// Load factory defaults so reset buttons can restore only selected groups.
 	function loadDefaults(){ $.getJSON('/api/settings/defaults').done(data=>defaults=data); }
 	// Load current settings and refresh the defaults cache.
-	function loadSettings(){ $.getJSON('/api/settings').done(render).fail(()=>status('Load failed','danger')); loadDefaults(); }
+	function loadSettings(){ let req=$.getJSON('/api/settings').done(render).fail(()=>status('Load failed','danger')); loadDefaults(); return req; }
 	// Save the current form state and then re-render from the device response.
-	function saveSettings(){ status('Saving','warning'); $.ajax({url:'/api/settings',method:'POST',data:JSON.stringify(collectSettings()),contentType:'application/json'}).done(()=>loadSettings()).fail(x=>status(x.responseText||'Save failed','danger')); }
+	function saveSettings(){ status('Saving','warning'); let target=loadingTarget(); return withAjaxLoading(target,'Saving settings to the ESP32...',()=>$.ajax({url:'/api/settings',method:'POST',data:JSON.stringify(collectSettings()),contentType:'application/json'}).done(()=>loadSettings()).fail(x=>status(x.responseText||'Save failed','danger'))); }
 	const mainTabByHash={dashboard:'#espStatus',status:'#espStatus',location:'#general','data-sources':'#apiKeys',display:'#colours',notifications:'#notifications',ranges:'#ranges',wifi:'#wifi'};
 	const hashByMainTab={espStatus:'dashboard',general:'location',apiKeys:'data-sources',colours:'display',notifications:'notifications',ranges:'ranges',wifi:'wifi'};
 	const statusTabByHash={'dashboard-info':'#statusInfo','dashboard-aircraft':'#statusAircraft','dashboard-screenshot':'#statusScreenshot','dashboard-import-export':'#statusImportExport','status-info':'#statusInfo','status-aircraft':'#statusAircraft','status-screenshot':'#statusScreenshot','status-import-export':'#statusImportExport'};
@@ -1135,7 +1295,7 @@ function renderStyleGroups(data){
     }
   }
   importExportStatus('Importing settings...','warning');
-  $.ajax({url:'/api/settings',method:'POST',contentType:'application/json',data:JSON.stringify(parsed.settings)})
+  withAjaxLoading('#statusImportExport','Importing settings and applying them...',()=>$.ajax({url:'/api/settings',method:'POST',contentType:'application/json',data:JSON.stringify(parsed.settings)}))
     .done(()=>{ importExportStatus('Settings imported and applied.','success'); loadSettings(); })
     .fail(x=>importExportStatus(x.responseText||'Import failed','danger'));
 }
@@ -1163,6 +1323,9 @@ function renderStyleGroups(data){
     if(defaults.visible&&hasKey(defaults.visible,k)) $(`.visible-value[data-key="${k}"]`).prop('checked',!!defaults.visible[k]);
     (styleDefs[k].ui||[]).forEach(u=>{ if(defaults.ui&&hasKey(defaults.ui,u.key)) $(`.ui-value[data-key="${u.key}"]`).val(defaults.ui[u.key]); });
   });
+  if(keys.includes('airport_weather')&&defaults.interface&&hasKey(defaults.interface,'airportWeatherIconSize')){
+    $('#airportWeatherIconSize').val(defaults.interface.airportWeatherIconSize);
+  }
   return true;
 }
 function applyLabelStyleDefaults(keys){
@@ -1183,11 +1346,11 @@ $('#lat,#lon').on('input',function(){ if($('#centerSource').val()==='manual') re
 $('#dataSource').on('change',updateDataSourceState);
 $('input[name="dataSourceCard"]').on('change',function(){ $('#dataSource').val($(this).val()); updateDataSourceState(); });
 $('.data-source-card').on('click',function(){ $('#dataSource').val($(this).data('source')); updateDataSourceState(); });
-$('#copyGpsToManual').on('click',function(){ $.getJSON('/api/settings').done(data=>{ if(!data.gps||!data.gps.hasFix){ status('No GPS lock','warning'); return; } $('#lat').val(Number(data.gps.lat).toFixed(6)); $('#lon').val(Number(data.gps.lon).toFixed(6)); $('#centerSource').val('manual'); updateSourceState(); saveSettings(); }).fail(()=>status('GPS copy failed','danger')); });
+$('#copyGpsToManual').on('click',function(){ withAjaxLoading('#general','Reading GPS position...',()=>$.getJSON('/api/settings')).done(data=>{ if(!data.gps||!data.gps.hasFix){ status('No GPS lock','warning'); return; } $('#lat').val(Number(data.gps.lat).toFixed(6)); $('#lon').val(Number(data.gps.lon).toFixed(6)); $('#centerSource').val('manual'); updateSourceState(); saveSettings(); }).fail(()=>status('GPS copy failed','danger')); });
 $('#airportSearch').on('input',function(){ let text=$(this).val(); if(airportOptions[text]){ renderAirport(airportOptions[text]); return; } renderAirport(null); clearTimeout(airportTimer); if(text.length<2) return; airportTimer=setTimeout(()=>{ $.getJSON('/api/airports',{q:text}).done(data=>{ airportOptions={}; let list=$('#airportOptions').empty(); (data.airports||[]).forEach(a=>{ let label=airportLabel(a); airportOptions[label]=a; list.append(`<option value="${esc(label)}"></option>`); }); if(airportOptions[$('#airportSearch').val()]) renderAirport(airportOptions[$('#airportSearch').val()]); }); },250); });
 $('#copyAirportToManual').on('click',function(){ if(!selectedAirport){ status('No airport selected','warning'); return; } $('#lat').val(Number(selectedAirport.lat).toFixed(6)); $('#lon').val(Number(selectedAirport.lon).toFixed(6)); $('#centerSource').val('manual'); updateSourceState(); saveSettings(); });
 	// Query OpenWeather for a place name and render selectable radar centre results.
-	function searchLocations(){ let text=$('#locationSearch').val().trim(); if(text.length<2){ status('Enter a location','warning'); return; } status('Searching location','warning'); $.getJSON('/api/locations',{q:text}).done(data=>{ renderLocationResults(data.locations||[]); status('Location search complete','success'); }).fail(x=>status(x.responseText||'Location search failed','danger')); }
+	function searchLocations(){ let text=$('#locationSearch').val().trim(); if(text.length<2){ status('Enter a location','warning'); return; } status('Searching location','warning'); withAjaxLoading('#general','Searching for matching locations...',()=>$.getJSON('/api/locations',{q:text})).done(data=>{ renderLocationResults(data.locations||[]); status('Location search complete','success'); }).fail(x=>status(x.responseText||'Location search failed','danger')); }
 $('#searchLocation').on('click',searchLocations);
 $('#locationSearch').on('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); searchLocations(); } });
 $('#locationResults').on('click','.location-result',function(){ let item=locationResults[+$(this).data('index')]; if(!item) return; renderLocation(item); $('#centerSource').val('location'); updateSourceState(); });
@@ -1196,9 +1359,42 @@ $('#styleGroups').on('click','.reset-style-group',function(){ let group=styleGro
 $('#resetAppearance').on('click',function(){ let keys=[], labelKeys=[]; styleGroups.forEach(g=>{ keys=keys.concat(g.keys); labelKeys=labelKeys.concat(g.labelStyles||[]); }); if(applyDefaults(keys)&&applyLabelStyleDefaults(labelKeys)) saveSettings(); });
 $('#notificationRows').on('click','.delete-notification',function(){ let index=$('#notificationRows .notify-row').index($(this).closest('.notify-row')); let items=collectNotifications(); items.splice(index,1); items=items.filter(n=>(n.type||'').trim()||(n.text||'').trim()); renderNotificationRows(items); saveSettings(); });
 $('#rangeRows').on('input','.range-miles',()=>rebuildDefaultRange($('#defaultRange').val()));
-$('#resetRanges').on('click',()=>$.post('/api/ranges/reset').done(loadSettings).fail(()=>status('Reset failed','danger')));
-$('#scanWifi').on('click',function(){ status('Scanning','warning'); $.getJSON('/api/wifi/scan').done(data=>{ let sel=$('#wifiSsid').empty(); data.networks.forEach(n=>sel.append(`<option value="${esc(n.ssid)}">${esc(n.ssid)} (${n.rssi} dBm)</option>`)); status('Scan complete','success'); }).fail(()=>status('Scan failed','danger')); });
-$('#saveWifi').on('click',function(){ let ssid=$('#wifiManual').val()||$('#wifiSsid').val(); $.ajax({url:'/api/wifi',method:'POST',contentType:'application/json',data:JSON.stringify({ssid:ssid,password:$('#wifiPassword').val()})}).done(()=>status('WiFi saved','success')).fail(x=>status(x.responseText||'WiFi save failed','danger')); });
+$('#resetRanges').on('click',()=>withAjaxLoading('#ranges','Resetting range presets...',()=>$.post('/api/ranges/reset')).done(loadSettings).fail(()=>status('Reset failed','danger')));
+function scanWifiNetworks(){
+  status('Scanning','warning');
+  $('#wifiScanDetail').text('Scanning for nearby networks...');
+  $('#wifiNetworkList').html('<div class="wifi-network-item"><div><div class="wifi-network-name-row"><i class="bi bi-arrow-clockwise text-muted"></i><span class="wifi-network-ssid text-muted">Scanning...</span></div><div class="wifi-network-detail">Please wait while nearby access points are discovered.</div></div></div>');
+  withAjaxLoading('#wifi','Scanning for nearby WiFi networks...',()=>$.getJSON('/api/wifi/scan')).done(data=>{
+    let sel=$('#wifiSsid').empty();
+    let networks=data.networks||[];
+    let list=$('#wifiNetworkList').empty();
+    networks.forEach((n,i)=>{
+      let strength=wifiStrength(n.rssi), secured=wifiAuthLabel(n.auth), ssid=esc(n.ssid||'Hidden network');
+      sel.append(`<option value="${esc(n.ssid)}">${ssid}</option>`);
+      list.append(`<button class="wifi-network-item ${i===0?'active':''}" type="button" data-ssid="${esc(n.ssid)}">
+        <div>
+          <div class="wifi-network-name-row"><i class="bi ${secured==='Open'?'bi-unlock':'bi-lock'} text-muted"></i><span class="wifi-network-ssid">${ssid}</span></div>
+          <div class="wifi-network-detail">${secured} · Channel ${esc(n.channel||'--')} · ${esc(String(n.rssi))} dBm</div>
+        </div>
+        <div class="wifi-strength">
+          <div class="wifi-strength-bars" data-level="${strength.level}"><span></span><span></span><span></span><span></span></div>
+          <div class="wifi-network-detail text-end">${strength.label}</div>
+        </div>
+      </button>`);
+    });
+    if(networks.length) sel.val(networks[0].ssid||'');
+    if(!networks.length) list.html('<div class="wifi-network-item"><div><div class="wifi-network-name-row"><i class="bi bi-wifi-off text-muted"></i><span class="wifi-network-ssid text-muted">No networks found</span></div><div class="wifi-network-detail">Enter the SSID manually below.</div></div></div>');
+    $('#wifiScanDetail').text(networks.length?`${networks.length} networks found. Select one, or enter a manual SSID below.`:'No networks found. Enter the SSID manually below.');
+    status('Scan complete','success');
+  }).fail(()=>{ $('#wifiScanDetail').text('Scan failed. You can still enter the SSID manually.'); status('Scan failed','danger'); });
+}
+function saveWifiCredentials(){
+  let ssid=$('#wifiManual').val()||$('#wifiSsid').val();
+  withAjaxLoading('#wifi','Saving WiFi credentials...',()=>$.ajax({url:'/api/wifi',method:'POST',contentType:'application/json',data:JSON.stringify({ssid:ssid,password:$('#wifiPassword').val()})})).done(()=>status('WiFi saved','success')).fail(x=>status(x.responseText||'WiFi save failed','danger'));
+}
+$('#scanWifi,#scanWifiInline').on('click',scanWifiNetworks);
+$('#saveWifi,#saveWifiInline').on('click',saveWifiCredentials);
+$('#wifiNetworkList').on('click','.wifi-network-item[data-ssid]',function(){ $('#wifiNetworkList .wifi-network-item').removeClass('active'); $(this).addClass('active'); $('#wifiSsid').val($(this).data('ssid')); $('#wifiManual').val(''); });
 $('#exportSettings').on('click',exportSettingsJson);
 $('#importSettings').on('click',importSettingsJson);
 $('#importSettingsFile').on('change',function(){

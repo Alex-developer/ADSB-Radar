@@ -229,6 +229,7 @@ const char *hardware_button_action_name(int action)
     X(sweep, 0xcffcf3) \
     X(country_boundary, 0x7dd3fc) \
     X(airport, 0x9ee6a6) \
+    X(airport_weather, 0x9ee6a6) \
     X(runway, 0xcffcf3) \
     X(aircraft_normal, 0x34d399) \
     X(aircraft_stale, 0x2dd4bf) \
@@ -638,6 +639,9 @@ void RadarSettings::setDefaults()
     sweep_trail_width = RADAR_SETTINGS_DEFAULT_SWEEP_TRAIL_WIDTH;
     sweep_trail_step_deg = RADAR_SETTINGS_DEFAULT_SWEEP_TRAIL_STEP_DEG;
     show_airports = true;
+    show_airport_weather = false;
+    airport_weather_refresh_min = RADAR_SETTINGS_DEFAULT_AIRPORT_WEATHER_REFRESH_MIN;
+    airport_weather_icon_size = RADAR_SETTINGS_DEFAULT_AIRPORT_WEATHER_ICON_SIZE;
     emergency_squawks_red = true;
     show_aircraft_heading = true;
     aircraft_heading_style = RADAR_HEADING_STYLE_ARROW;
@@ -670,6 +674,7 @@ void RadarSettings::setDefaults()
         ranges[i].miles = i < default_range_count ? default_ranges[i] : 0;
         ranges[i].refresh_sec = CONFIG_RADAR_FETCH_INTERVAL_SEC;
         ranges[i].label_count = RADAR_SETTINGS_DEFAULT_LABELS;
+        ranges[i].show_history_trail = false;
     }
 
     for (size_t i = 0; i < MAX_NOTIFICATION_SETTINGS; ++i) {
@@ -757,6 +762,10 @@ bool RadarSettings::isValid(const radar_settings_t &candidate)
         candidate.sweep_trail_width > RADAR_SETTINGS_MAX_LINE_WIDTH ||
         candidate.sweep_trail_step_deg < RADAR_SETTINGS_MIN_SWEEP_TRAIL_STEP_DEG ||
         candidate.sweep_trail_step_deg > RADAR_SETTINGS_MAX_SWEEP_TRAIL_STEP_DEG ||
+        candidate.airport_weather_refresh_min < RADAR_SETTINGS_MIN_AIRPORT_WEATHER_REFRESH_MIN ||
+        candidate.airport_weather_refresh_min > RADAR_SETTINGS_MAX_AIRPORT_WEATHER_REFRESH_MIN ||
+        candidate.airport_weather_icon_size < RADAR_SETTINGS_MIN_AIRPORT_WEATHER_ICON_SIZE ||
+        candidate.airport_weather_icon_size > RADAR_SETTINGS_MAX_AIRPORT_WEATHER_ICON_SIZE ||
         candidate.aircraft_heading_style < RADAR_HEADING_STYLE_NONE ||
         candidate.aircraft_heading_style > RADAR_HEADING_STYLE_LINE ||
         candidate.ground_speed_kt < 0 ||
@@ -960,6 +969,18 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
             candidate->sweep_trail_step_deg = RADAR_SETTINGS_MAX_SWEEP_TRAIL_STEP_DEG;
         }
         candidate->show_airports = parse_bool_item(interface, "showAirports", candidate->show_airports);
+        candidate->show_airport_weather =
+            parse_bool_item(interface, "showAirportWeather", candidate->show_airport_weather);
+        candidate->airport_weather_refresh_min =
+            clamp_int(parse_int_item(interface, "airportWeatherRefreshMin",
+                                     candidate->airport_weather_refresh_min),
+                      RADAR_SETTINGS_MIN_AIRPORT_WEATHER_REFRESH_MIN,
+                      RADAR_SETTINGS_MAX_AIRPORT_WEATHER_REFRESH_MIN);
+        candidate->airport_weather_icon_size =
+            clamp_int(parse_int_item(interface, "airportWeatherIconSize",
+                                     candidate->airport_weather_icon_size),
+                      RADAR_SETTINGS_MIN_AIRPORT_WEATHER_ICON_SIZE,
+                      RADAR_SETTINGS_MAX_AIRPORT_WEATHER_ICON_SIZE);
         candidate->show_countries = parse_bool_item(interface, "showCountries", candidate->show_countries);
         candidate->show_airport_runways = parse_bool_item(interface, "showAirportRunways", candidate->show_airport_runways);
         candidate->emergency_squawks_red = parse_bool_item(interface, "emergencyRed", candidate->emergency_squawks_red);
@@ -1065,6 +1086,8 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
             candidate->ranges[out].refresh_sec = clamp_int(parse_int_item(range, "refresh", CONFIG_RADAR_FETCH_INTERVAL_SEC), 2, 300);
             candidate->ranges[out].label_count = clamp_int(parse_int_item(range, "labels", RADAR_SETTINGS_DEFAULT_LABELS),
                                                            0, RADAR_SETTINGS_MAX_LABELS);
+            candidate->ranges[out].show_history_trail =
+                parse_bool_item(range, "historyTrail", false);
             ++out;
         }
     }
@@ -1184,6 +1207,9 @@ char *RadarSettings::toJson(const char *wifi_ssid) const
     cJSON_AddNumberToObject(interface, "sweepTrailWidth", sweep_trail_width);
     cJSON_AddNumberToObject(interface, "sweepTrailStepDeg", sweep_trail_step_deg);
     cJSON_AddBoolToObject(interface, "showAirports", show_airports);
+    cJSON_AddBoolToObject(interface, "showAirportWeather", show_airport_weather);
+    cJSON_AddNumberToObject(interface, "airportWeatherRefreshMin", airport_weather_refresh_min);
+    cJSON_AddNumberToObject(interface, "airportWeatherIconSize", airport_weather_icon_size);
     cJSON_AddBoolToObject(interface, "showCountries", show_countries);
     cJSON_AddBoolToObject(interface, "showAirportRunways", show_airport_runways);
     cJSON_AddBoolToObject(interface, "emergencyRed", emergency_squawks_red);
@@ -1221,6 +1247,7 @@ char *RadarSettings::toJson(const char *wifi_ssid) const
         cJSON_AddNumberToObject(range, "miles", ranges[i].miles);
         cJSON_AddNumberToObject(range, "refresh", ranges[i].refresh_sec);
         cJSON_AddNumberToObject(range, "labels", ranges[i].label_count);
+        cJSON_AddBoolToObject(range, "historyTrail", ranges[i].show_history_trail);
         cJSON_AddItemToArray(range_array, range);
     }
 

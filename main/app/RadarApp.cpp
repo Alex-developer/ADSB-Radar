@@ -88,24 +88,6 @@ enum {
 
 RadarApp *RadarApp::active_app = nullptr;
 
-/* Calculate a smooth trail opacity for the configured number of sweep trail lines. */
-static lv_opa_t sweep_trail_opacity(size_t index, int trail_count)
-{
-    if (trail_count <= 0 || index >= (size_t)trail_count) {
-        return LV_OPA_TRANSP;
-    }
-    const int max_opa = 128;
-    const int min_opa = 12;
-    if (trail_count == 1) {
-        return (lv_opa_t)max_opa;
-    }
-    int opa = max_opa - (int)(((max_opa - min_opa) * (int)index) / (trail_count - 1));
-    if (opa < min_opa) {
-        opa = min_opa;
-    }
-    return (lv_opa_t)opa;
-}
-
 /* Draw a filled climb/descent triangle for an aircraft label marker. */
 static void trend_triangle_draw_event(lv_event_t *event)
 {
@@ -218,6 +200,114 @@ void RadarApp::sweep_timer_entry(lv_timer_t *timer)
     if (active_app) {
         active_app->sweep_timer_cb(timer);
     }
+}
+
+/* Convert the radar's north-zero clockwise bearing into LVGL's east-zero clockwise angle. */
+static int radar_to_lvgl_angle(float radar_angle_deg)
+{
+    int angle = (int)lroundf(radar_angle_deg + 270.0f) % 360;
+    if (angle < 0) {
+        angle += 360;
+    }
+    return angle;
+}
+
+/* Draw the bright sweep and the configured fading trail sector. */
+void RadarApp::sweep_draw_event_entry(lv_event_t *event)
+{
+    if (!active_app || !event) {
+        return;
+    }
+    RadarApp *app = active_app;
+    if (!app->settings.show_sweep || !app->settings.visible.sweep) {
+        return;
+    }
+
+    lv_obj_t *obj = (lv_obj_t *)lv_event_get_target(event);
+    lv_layer_t *layer = lv_event_get_layer(event);
+    if (!obj || !layer) {
+        return;
+    }
+
+    lv_area_t coords = {};
+    lv_obj_get_coords(obj, &coords);
+    const int center_x = coords.x1 + (RADAR_CENTER - app->sweep_overlay_left);
+    const int center_y = coords.y1 + (RADAR_CENTER - app->sweep_overlay_top);
+
+    int trail_count = app->settings.show_sweep_trail ? app->settings.sweep_trail_count : 0;
+    if (trail_count < 0) {
+        trail_count = 0;
+    }
+    if (trail_count > (int)SWEEP_TRAIL_COUNT) {
+        trail_count = (int)SWEEP_TRAIL_COUNT;
+    }
+
+    float trail_step_deg = (float)app->settings.sweep_trail_step_deg;
+    if (trail_step_deg < (float)RADAR_SETTINGS_MIN_SWEEP_TRAIL_STEP_DEG) {
+        trail_step_deg = (float)RADAR_SETTINGS_MIN_SWEEP_TRAIL_STEP_DEG;
+    }
+    if (trail_step_deg > (float)RADAR_SETTINGS_MAX_SWEEP_TRAIL_STEP_DEG) {
+        trail_step_deg = (float)RADAR_SETTINGS_MAX_SWEEP_TRAIL_STEP_DEG;
+    }
+
+    if (trail_count > 0) {
+        float trail_span_deg = (float)trail_count * trail_step_deg;
+        if (trail_span_deg > 359.0f) {
+            trail_span_deg = 359.0f;
+        }
+
+        int segment_count = (int)ceilf(trail_span_deg);
+        if (segment_count < 1) {
+            segment_count = 1;
+        }
+        if (segment_count > 16) {
+            segment_count = 16;
+        }
+        float segment_deg = trail_span_deg / (float)segment_count;
+        lv_opa_t max_opa = (lv_opa_t)(70 + (app->settings.sweep_trail_width * 6));
+        if (max_opa > 170) {
+            max_opa = 170;
+        }
+
+        for (int i = 0; i < segment_count; ++i) {
+            float radar_start = (float)app->sweep_angle_deg - trail_span_deg +
+                                ((float)i * segment_deg);
+            float radar_end = radar_start + segment_deg;
+            int lv_start = radar_to_lvgl_angle(radar_start);
+            int lv_end = radar_to_lvgl_angle(radar_end);
+            int opa = ((int)max_opa * (i + 1)) / segment_count;
+            if (opa < 4) {
+                opa = 4;
+            }
+
+            lv_draw_arc_dsc_t arc_dsc = {};
+            lv_draw_arc_dsc_init(&arc_dsc);
+            arc_dsc.color = lv_color_hex(app->settings.colors.sweep);
+            arc_dsc.opa = (lv_opa_t)opa;
+            arc_dsc.width = RADAR_RADIUS;
+            arc_dsc.radius = RADAR_RADIUS;
+            arc_dsc.center.x = center_x;
+            arc_dsc.center.y = center_y;
+            arc_dsc.start_angle = lv_start;
+            arc_dsc.end_angle = lv_end;
+            arc_dsc.rounded = false;
+            lv_draw_arc(layer, &arc_dsc);
+        }
+    }
+
+    float rad = ((float)app->sweep_angle_deg - 90.0f) * PI_F / 180.0f;
+    lv_draw_line_dsc_t dsc = {};
+    lv_draw_line_dsc_init(&dsc);
+    dsc.p1.x = center_x;
+    dsc.p1.y = center_y;
+    dsc.p2.x = center_x + (int)lroundf(cosf(rad) * (float)RADAR_RADIUS);
+    dsc.p2.y = center_y + (int)lroundf(sinf(rad) * (float)RADAR_RADIUS);
+    dsc.color = lv_color_hex(app->settings.colors.sweep);
+    dsc.width = app->settings.widths.sweep;
+    dsc.opa = LV_OPA_COVER;
+    dsc.round_start = true;
+    dsc.round_end = true;
+    lv_draw_line(layer, &dsc);
 }
 
 /* Forward the aircraft UI refresh timer to the active application instance. */
@@ -759,6 +849,7 @@ void RadarApp::change_range_by_delta(int delta)
     }
 
     range_index = (size_t)next;
+    airport_weather_last_fetch_ms = 0;
     hide_range_menu();
     refresh_range_label();
     set_data_status("RNG %dMI", get_current_range_mi());
@@ -1409,6 +1500,7 @@ void RadarApp::range_menu_event(lv_event_t *event)
     }
 
     range_index = index;
+    airport_weather_last_fetch_ms = 0;
     hide_range_menu();
     refresh_range_label();
     set_data_status("RNG %dMI", get_current_range_mi());
@@ -1570,6 +1662,95 @@ uint32_t RadarApp::dim_colour(uint32_t color)
     return (r << 16) | (g << 8) | b;
 }
 
+/* Return a stable key for aircraft history, preferring ICAO hex over callsign. */
+const char *RadarApp::aircraft_track_key(const aircraft_data_t *aircraft)
+{
+    if (!aircraft) {
+        return "";
+    }
+    return aircraft->icao[0] != '\0' ? aircraft->icao : aircraft->callsign;
+}
+
+/* Find or create a fixed history slot for one aircraft. */
+aircraft_track_history_t *RadarApp::track_history_for_aircraft(const aircraft_data_t *aircraft)
+{
+    const char *key = aircraft_track_key(aircraft);
+    if (!key || key[0] == '\0') {
+        return nullptr;
+    }
+    if (!aircraft_tracks) {
+        aircraft_tracks = (aircraft_track_history_t *)heap_caps_calloc(MAX_AIRCRAFT_TRACKS,
+                                                                       sizeof(aircraft_tracks[0]),
+                                                                       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!aircraft_tracks) {
+            aircraft_tracks = (aircraft_track_history_t *)heap_caps_calloc(MAX_AIRCRAFT_TRACKS,
+                                                                           sizeof(aircraft_tracks[0]),
+                                                                           MALLOC_CAP_8BIT);
+        }
+        if (!aircraft_tracks) {
+            ESP_LOGW(TAG, "Unable to allocate aircraft history cache");
+            return nullptr;
+        }
+    }
+
+    aircraft_track_history_t *oldest = &aircraft_tracks[0];
+    for (size_t i = 0; i < MAX_AIRCRAFT_TRACKS; ++i) {
+        aircraft_track_history_t *track = &aircraft_tracks[i];
+        if (track->key[0] != '\0' && strncmp(track->key, key, sizeof(track->key)) == 0) {
+            return track;
+        }
+        if (track->key[0] == '\0') {
+            oldest = track;
+            break;
+        }
+        if (track->last_generation < oldest->last_generation) {
+            oldest = track;
+        }
+    }
+
+    memset(oldest, 0, sizeof(*oldest));
+    snprintf(oldest->key, sizeof(oldest->key), "%s", key);
+    return oldest;
+}
+
+/* Append current positions to the aircraft history cache after a displayed update. */
+void RadarApp::update_aircraft_track_history(const aircraft_data_t *snapshot, size_t count,
+                                             int range_mi, uint32_t generation)
+{
+    for (size_t i = 0; i < count; ++i) {
+        if (snapshot[i].distance_mi > (float)range_mi) {
+            break;
+        }
+        if (!aircraft_matches_filter(&snapshot[i])) {
+            continue;
+        }
+
+        aircraft_track_history_t *track = track_history_for_aircraft(&snapshot[i]);
+        if (!track || track->last_generation == generation) {
+            continue;
+        }
+        if (track->count > 0 &&
+            fabsf(track->points[0].distance_mi - snapshot[i].distance_mi) < 0.03f &&
+            abs(angle_delta(track->points[0].bearing_deg, snapshot[i].bearing_deg)) < 1) {
+            track->last_generation = generation;
+            continue;
+        }
+
+        size_t move_count = track->count < AIRCRAFT_HISTORY_POINTS - 1 ?
+                            track->count : AIRCRAFT_HISTORY_POINTS - 1;
+        if (move_count > 0) {
+            memmove(&track->points[1], &track->points[0],
+                    move_count * sizeof(track->points[0]));
+        }
+        track->points[0].distance_mi = snapshot[i].distance_mi;
+        track->points[0].bearing_deg = snapshot[i].bearing_deg;
+        if (track->count < AIRCRAFT_HISTORY_POINTS) {
+            ++track->count;
+        }
+        track->last_generation = generation;
+    }
+}
+
 /* Choose the colour used to plot one aircraft marker. */
 uint32_t RadarApp::marker_color(const aircraft_data_t *aircraft, bool hit, bool dimmed) const
 {
@@ -1615,7 +1796,7 @@ const notification_setting_t *RadarApp::matching_notification(const aircraft_dat
         if (!notification->enabled || notification->type_match[0] == '\0') {
             continue;
         }
-        if (string_contains_ci(aircraft->type, notification->type_match)) {
+        if (string_equals_trimmed_ci(aircraft->type, notification->type_match)) {
             return notification;
         }
     }
@@ -1633,7 +1814,7 @@ bool RadarApp::matches_focus_notification(const aircraft_data_t *aircraft) const
         if (!notification->enabled || !notification->dim_others || notification->type_match[0] == '\0') {
             continue;
         }
-        if (string_contains_ci(aircraft->type, notification->type_match)) {
+        if (string_equals_trimmed_ci(aircraft->type, notification->type_match)) {
             return true;
         }
     }
@@ -1775,13 +1956,8 @@ void RadarApp::sweep_timer_cb(lv_timer_t *timer)
     (void)timer;
     static uint32_t last_draw_ms = 0;
     if (!settings.show_sweep || !settings.visible.sweep) {
-        if (sweep_line) {
-            lv_obj_add_flag(sweep_line, LV_OBJ_FLAG_HIDDEN);
-        }
-        for (size_t i = 0; i < SWEEP_TRAIL_COUNT; ++i) {
-            if (sweep_trail_lines[i]) {
-                lv_obj_add_flag(sweep_trail_lines[i], LV_OBJ_FLAG_HIDDEN);
-            }
+        if (sweep_overlay) {
+            lv_obj_add_flag(sweep_overlay, LV_OBJ_FLAG_HIDDEN);
         }
         last_draw_ms = 0;
         return;
@@ -1797,9 +1973,6 @@ void RadarApp::sweep_timer_cb(lv_timer_t *timer)
     }
     last_draw_ms = now_ms;
 
-    if (sweep_line) {
-        lv_obj_clear_flag(sweep_line, LV_OBJ_FLAG_HIDDEN);
-    }
     int trail_count = settings.show_sweep_trail ? settings.sweep_trail_count : 0;
     if (trail_count < 0) {
         trail_count = 0;
@@ -1807,17 +1980,7 @@ void RadarApp::sweep_timer_cb(lv_timer_t *timer)
     if (trail_count > (int)SWEEP_TRAIL_COUNT) {
         trail_count = (int)SWEEP_TRAIL_COUNT;
     }
-    for (size_t i = 0; i < SWEEP_TRAIL_COUNT; ++i) {
-        if (sweep_trail_lines[i]) {
-            if ((int)i < trail_count) {
-                lv_obj_clear_flag(sweep_trail_lines[i], LV_OBJ_FLAG_HIDDEN);
-                lv_obj_set_style_line_opa(sweep_trail_lines[i],
-                                          sweep_trail_opacity(i, trail_count), 0);
-            } else {
-                lv_obj_add_flag(sweep_trail_lines[i], LV_OBJ_FLAG_HIDDEN);
-            }
-        }
-    }
+
     int step_deg = settings.sweep_step_deg;
     if (step_deg < RADAR_SETTINGS_MIN_SWEEP_STEP_DEG) {
         step_deg = RADAR_SETTINGS_MIN_SWEEP_STEP_DEG;
@@ -1831,48 +1994,44 @@ void RadarApp::sweep_timer_cb(lv_timer_t *timer)
         pad = 6;
     }
 
-    auto update_line = [&](lv_obj_t *line, lv_point_precise_t points[2], float angle_deg) {
-        if (!line) {
-            return;
+    int left = RADAR_CENTER;
+    int top = RADAR_CENTER;
+    int right = RADAR_CENTER;
+    int bottom = RADAR_CENTER;
+    auto normalise_radar_angle = [](float angle_deg) {
+        while (angle_deg < 0.0f) {
+            angle_deg += 360.0f;
         }
-
+        while (angle_deg >= 360.0f) {
+            angle_deg -= 360.0f;
+        }
+        return angle_deg;
+    };
+    auto clockwise_delta = [&](float from_deg, float to_deg) {
+        float delta = normalise_radar_angle(to_deg) - normalise_radar_angle(from_deg);
+        if (delta < 0.0f) {
+            delta += 360.0f;
+        }
+        return delta;
+    };
+    auto include_angle = [&](float angle_deg) {
         float rad = (angle_deg - 90.0f) * PI_F / 180.0f;
-        int x1 = RADAR_CENTER;
-        int y1 = RADAR_CENTER;
         int x2 = RADAR_CENTER + (int)(cosf(rad) * RADAR_RADIUS);
         int y2 = RADAR_CENTER + (int)(sinf(rad) * RADAR_RADIUS);
-
-        int left = x1 < x2 ? x1 : x2;
-        int top = y1 < y2 ? y1 : y2;
-        int right = x1 > x2 ? x1 : x2;
-        int bottom = y1 > y2 ? y1 : y2;
-        left -= pad;
-        top -= pad;
-        right += pad;
-        bottom += pad;
-        if (left < 0) {
-            left = 0;
+        if (x2 < left) {
+            left = x2;
         }
-        if (top < 0) {
-            top = 0;
+        if (x2 > right) {
+            right = x2;
         }
-        if (right >= RADAR_SIZE) {
-            right = RADAR_SIZE - 1;
+        if (y2 < top) {
+            top = y2;
         }
-        if (bottom >= RADAR_SIZE) {
-            bottom = RADAR_SIZE - 1;
+        if (y2 > bottom) {
+            bottom = y2;
         }
-
-        lv_obj_set_pos(line, left, top);
-        lv_obj_set_size(line, right - left + 1, bottom - top + 1);
-        points[0].x = x1 - left;
-        points[0].y = y1 - top;
-        points[1].x = x2 - left;
-        points[1].y = y2 - top;
-        lv_line_set_points(line, points, 2);
     };
 
-    update_line(sweep_line, sweep_points, (float)sweep_angle_deg);
     float trail_step_deg = (float)settings.sweep_trail_step_deg;
     if (trail_step_deg < (float)RADAR_SETTINGS_MIN_SWEEP_TRAIL_STEP_DEG) {
         trail_step_deg = (float)RADAR_SETTINGS_MIN_SWEEP_TRAIL_STEP_DEG;
@@ -1880,14 +2039,49 @@ void RadarApp::sweep_timer_cb(lv_timer_t *timer)
     if (trail_step_deg > (float)RADAR_SETTINGS_MAX_SWEEP_TRAIL_STEP_DEG) {
         trail_step_deg = (float)RADAR_SETTINGS_MAX_SWEEP_TRAIL_STEP_DEG;
     }
-    for (size_t i = 0; i < (size_t)trail_count; ++i) {
-        float trail_angle = (float)sweep_angle_deg - ((float)(i + 1) * trail_step_deg);
-        while (trail_angle < 0) {
-            trail_angle += 360.0f;
+
+    float trail_span_deg = (float)trail_count * trail_step_deg;
+    if (trail_span_deg > 359.0f) {
+        trail_span_deg = 359.0f;
+    }
+    float trail_start_deg = normalise_radar_angle((float)sweep_angle_deg - trail_span_deg);
+
+    include_angle((float)sweep_angle_deg);
+    if (trail_count > 0) {
+        include_angle(trail_start_deg);
+        const float cardinals[] = {0.0f, 90.0f, 180.0f, 270.0f};
+        for (size_t i = 0; i < sizeof(cardinals) / sizeof(cardinals[0]); ++i) {
+            if (clockwise_delta(trail_start_deg, cardinals[i]) <= trail_span_deg) {
+                include_angle(cardinals[i]);
+            }
         }
-        update_line(sweep_trail_lines[i], sweep_trail_points[i], trail_angle);
     }
 
+    left -= pad;
+    top -= pad;
+    right += pad;
+    bottom += pad;
+    if (left < 0) {
+        left = 0;
+    }
+    if (top < 0) {
+        top = 0;
+    }
+    if (right >= RADAR_SIZE) {
+        right = RADAR_SIZE - 1;
+    }
+    if (bottom >= RADAR_SIZE) {
+        bottom = RADAR_SIZE - 1;
+    }
+
+    sweep_overlay_left = left;
+    sweep_overlay_top = top;
+    if (sweep_overlay) {
+        lv_obj_clear_flag(sweep_overlay, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(sweep_overlay, left, top);
+        lv_obj_set_size(sweep_overlay, right - left + 1, bottom - top + 1);
+        lv_obj_invalidate(sweep_overlay);
+    }
 }
 
 /* Write one opaque canvas pixel when the coordinate is inside the radar canvas. */
@@ -2439,7 +2633,8 @@ void RadarApp::create_aircraft_markers(lv_obj_t *radar)
         markers[i].detail_label = make_label(radar, "",
                                              configured_label_font(settings.label_styles.aircraft, -2),
                                              settings.colors.text_secondary);
-        lv_obj_set_width(markers[i].detail_label, 96);
+        lv_obj_set_width(markers[i].detail_label, 124);
+        lv_obj_set_height(markers[i].detail_label, 30);
         lv_label_set_long_mode(markers[i].detail_label, LV_LABEL_LONG_CLIP);
         lv_obj_set_style_text_opa(markers[i].detail_label, LV_OPA_70, 0);
         lv_obj_add_flag(markers[i].detail_label, LV_OBJ_FLAG_HIDDEN);
@@ -2490,9 +2685,28 @@ void RadarApp::draw_aircraft_dot(lv_obj_t *canvas, int x, int y, uint32_t color)
     }
 }
 
-/* Draw a compact heading indicator for an aircraft marker. */
-void RadarApp::draw_aircraft_heading_arrow(lv_obj_t *canvas, int x, int y, int heading_deg,
-                                           uint32_t color, int width, bool arrow_head)
+/* Draw an ATC-style square aircraft head symbol at the current target position. */
+void RadarApp::draw_aircraft_head_symbol(lv_obj_t *canvas, int x, int y, uint32_t color)
+{
+    canvas_draw_line_opa(canvas, x - 3, y - 3, x + 3, y - 3, 1, color, LV_OPA_COVER);
+    canvas_draw_line_opa(canvas, x + 3, y - 3, x + 3, y + 3, 1, color, LV_OPA_COVER);
+    canvas_draw_line_opa(canvas, x + 3, y + 3, x - 3, y + 3, 1, color, LV_OPA_COVER);
+    canvas_draw_line_opa(canvas, x - 3, y + 3, x - 3, y - 3, 1, color, LV_OPA_COVER);
+}
+
+/* Draw one older aircraft position as a subtle dot. */
+void RadarApp::draw_aircraft_history_dot(lv_obj_t *canvas, int x, int y, uint32_t color, lv_opa_t opa)
+{
+    canvas_set_px_opa_safe(canvas, x, y, color, opa);
+    canvas_set_px_opa_safe(canvas, x - 1, y, color, opa);
+    canvas_set_px_opa_safe(canvas, x + 1, y, color, opa);
+    canvas_set_px_opa_safe(canvas, x, y - 1, color, opa);
+    canvas_set_px_opa_safe(canvas, x, y + 1, color, opa);
+}
+
+/* Draw a compact heading indicator that shows direction only, not predicted position. */
+void RadarApp::draw_aircraft_heading_indicator(lv_obj_t *canvas, int x, int y, int heading_deg,
+                                               uint32_t color, int width, bool arrow_head)
 {
     if (heading_deg < 0) {
         return;
@@ -2501,9 +2715,9 @@ void RadarApp::draw_aircraft_heading_arrow(lv_obj_t *canvas, int x, int y, int h
     float rad = ((float)heading_deg - 90.0f) * PI_F / 180.0f;
     int tail_x = x + (int)lroundf(cosf(rad) * 5.0f);
     int tail_y = y + (int)lroundf(sinf(rad) * 5.0f);
-    int tip_x = x + (int)lroundf(cosf(rad) * 18.0f);
-    int tip_y = y + (int)lroundf(sinf(rad) * 18.0f);
-    canvas_draw_line(canvas, tail_x, tail_y, tip_x, tip_y, width, color);
+    int tip_x = x + (int)lroundf(cosf(rad) * 16.0f);
+    int tip_y = y + (int)lroundf(sinf(rad) * 16.0f);
+    canvas_draw_line_opa(canvas, tail_x, tail_y, tip_x, tip_y, width, color, LV_OPA_70);
 
     if (!arrow_head) {
         return;
@@ -2516,8 +2730,8 @@ void RadarApp::draw_aircraft_heading_arrow(lv_obj_t *canvas, int x, int y, int h
     int right_x = tip_x + (int)lroundf(cosf(right_rad) * 5.0f);
     int right_y = tip_y + (int)lroundf(sinf(right_rad) * 5.0f);
 
-    canvas_draw_line(canvas, tip_x, tip_y, left_x, left_y, width, color);
-    canvas_draw_line(canvas, tip_x, tip_y, right_x, right_y, width, color);
+    canvas_draw_line_opa(canvas, tip_x, tip_y, left_x, left_y, width, color, LV_OPA_70);
+    canvas_draw_line_opa(canvas, tip_x, tip_y, right_x, right_y, width, color, LV_OPA_70);
 }
 
 /* Write one alpha-blended canvas pixel when it lies inside the radar canvas. */
@@ -2536,6 +2750,143 @@ void RadarApp::draw_airport_marker(lv_obj_t *canvas, int x, int y)
     int arm = 3 + (width / 2);
     canvas_draw_line_opa(canvas, x - arm, y, x + arm, y, width, color, LV_OPA_50);
     canvas_draw_line_opa(canvas, x, y - arm, x, y + arm, width, color, LV_OPA_50);
+}
+
+/* Draw a small weather glyph using only canvas primitives. */
+void RadarApp::draw_airport_weather_icon(lv_obj_t *canvas, int x, int y, int weather_code)
+{
+    uint32_t color = settings.colors.airport_weather;
+    lv_opa_t opa = LV_OPA_70;
+    int size = clamp_int(settings.airport_weather_icon_size,
+                         RADAR_SETTINGS_MIN_AIRPORT_WEATHER_ICON_SIZE,
+                         RADAR_SETTINGS_MAX_AIRPORT_WEATHER_ICON_SIZE);
+    float scale = (float)size / (float)RADAR_SETTINGS_DEFAULT_AIRPORT_WEATHER_ICON_SIZE;
+    int cx = x - (size / 2) - 8;
+    int cy = y + (size / 2) + 8;
+
+    auto s = [&](float value) {
+        int scaled = (int)lroundf(value * scale);
+        if (value > 0.0f && scaled < 1) {
+            scaled = 1;
+        }
+        if (value < 0.0f && scaled > -1) {
+            scaled = -1;
+        }
+        return scaled;
+    };
+
+    auto dot = [&](int px, int py) {
+        canvas_set_px_opa_safe(canvas, px, py, color, opa);
+    };
+    auto small_circle = [&](int px, int py, int radius) {
+        if (radius < 1) {
+            radius = 1;
+        }
+        for (int yy = -radius; yy <= radius; ++yy) {
+            for (int xx = -radius; xx <= radius; ++xx) {
+                int d = (xx * xx) + (yy * yy);
+                if (d >= (radius - 1) * (radius - 1) && d <= radius * radius) {
+                    dot(px + xx, py + yy);
+                }
+            }
+        }
+    };
+    auto filled_circle = [&](int px, int py, int radius) {
+        if (radius < 1) {
+            radius = 1;
+        }
+        for (int yy = -radius; yy <= radius; ++yy) {
+            for (int xx = -radius; xx <= radius; ++xx) {
+                if ((xx * xx) + (yy * yy) <= radius * radius) {
+                    dot(px + xx, py + yy);
+                }
+            }
+        }
+    };
+    auto cloud = [&]() {
+        filled_circle(cx - s(3), cy + s(1), s(3));
+        filled_circle(cx + s(1), cy - s(1), s(4));
+        filled_circle(cx + s(6), cy + s(1), s(3));
+        canvas_draw_line_opa(canvas, cx - s(6), cy + s(4), cx + s(8), cy + s(4), 1, color, opa);
+    };
+    auto rain = [&]() {
+        cloud();
+        canvas_draw_line_opa(canvas, cx - s(4), cy + s(7), cx - s(6), cy + s(11), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx + s(1), cy + s(7), cx - s(1), cy + s(11), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx + s(6), cy + s(7), cx + s(4), cy + s(11), 1, color, opa);
+    };
+
+    if (weather_code == 0) {
+        small_circle(cx, cy, s(4));
+        canvas_draw_line_opa(canvas, cx, cy - s(8), cx, cy - s(6), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx, cy + s(6), cx, cy + s(8), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx - s(8), cy, cx - s(6), cy, 1, color, opa);
+        canvas_draw_line_opa(canvas, cx + s(6), cy, cx + s(8), cy, 1, color, opa);
+        return;
+    }
+
+    if (weather_code == 1 || weather_code == 2) {
+        small_circle(cx - s(5), cy - s(4), s(3));
+        cloud();
+        return;
+    }
+
+    if (weather_code == 3) {
+        cloud();
+        return;
+    }
+
+    if (weather_code == 45 || weather_code == 48) {
+        canvas_draw_line_opa(canvas, cx - s(7), cy - s(2), cx + s(8), cy - s(2), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx - s(8), cy + s(2), cx + s(7), cy + s(2), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx - s(6), cy + s(6), cx + s(8), cy + s(6), 1, color, opa);
+        return;
+    }
+
+    if ((weather_code >= 51 && weather_code <= 67) ||
+        (weather_code >= 80 && weather_code <= 82)) {
+        rain();
+        return;
+    }
+
+    if (weather_code >= 71 && weather_code <= 77) {
+        cloud();
+        canvas_draw_line_opa(canvas, cx - s(4), cy + s(8), cx - s(4), cy + s(10), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx - s(5), cy + s(9), cx - s(3), cy + s(9), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx + s(3), cy + s(8), cx + s(3), cy + s(10), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx + s(2), cy + s(9), cx + s(4), cy + s(9), 1, color, opa);
+        return;
+    }
+
+    if (weather_code >= 95 && weather_code <= 99) {
+        cloud();
+        canvas_draw_line_opa(canvas, cx + s(1), cy + s(6), cx - s(2), cy + s(11), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx - s(2), cy + s(11), cx + s(3), cy + s(9), 1, color, opa);
+        canvas_draw_line_opa(canvas, cx + s(3), cy + s(9), cx, cy + s(14), 1, color, opa);
+        return;
+    }
+
+    cloud();
+}
+
+/* Read cached weather for an airport record index. */
+bool RadarApp::get_airport_weather(size_t airport_index, airport_weather_t *weather)
+{
+    if (!settings.show_airport_weather || !weather || !airport_weather_mutex) {
+        return false;
+    }
+    bool found = false;
+    if (xSemaphoreTake(airport_weather_mutex, pdMS_TO_TICKS(2)) == pdTRUE) {
+        for (size_t i = 0; i < airport_weather_count; ++i) {
+            if (airport_weather[i].valid && airport_weather[i].airport_index == airport_index) {
+                *weather = airport_weather[i];
+                found = true;
+                break;
+            }
+        }
+        xSemaphoreGive(airport_weather_mutex);
+    }
+    return found;
 }
 
 /* Draw visible country boundary segments for the current centre and range. */
@@ -2648,6 +2999,10 @@ size_t RadarApp::draw_airports(lv_obj_t *canvas, int range_mi)
         int x = RADAR_CENTER + (int)lroundf(cosf(rad) * (float)radius);
         int y = RADAR_CENTER + (int)lroundf(sinf(rad) * (float)radius);
         draw_airport_marker(canvas, x, y);
+        airport_weather_t weather = {};
+        if (get_airport_weather(i, &weather)) {
+            draw_airport_weather_icon(canvas, x, y, weather.weather_code);
+        }
         ++drawn;
     }
 
@@ -2792,6 +3147,8 @@ void RadarApp::update_aircraft_plot(const aircraft_data_t *snapshot, size_t coun
     lv_canvas_fill_bg(aircraft_canvas, lv_color_hex(0x000000), LV_OPA_TRANSP);
 
     const bool focus_active = notification_focus_active(snapshot, count, range_mi);
+    const bool show_history = range_index < MAX_RANGE_SETTINGS &&
+                              settings.ranges[range_index].show_history_trail;
     for (size_t i = 0; i < count; ++i) {
         if (snapshot[i].distance_mi > (float)range_mi) {
             break;
@@ -2807,13 +3164,34 @@ void RadarApp::update_aircraft_plot(const aircraft_data_t *snapshot, size_t coun
 
         const bool dimmed = focus_active && !matches_focus_notification(&snapshot[i]);
         uint32_t color = marker_color(&snapshot[i], false, dimmed);
-        if (settings.show_aircraft_heading && settings.visible.aircraft_heading) {
-            draw_aircraft_heading_arrow(aircraft_canvas, x, y, snapshot[i].heading_deg,
-                                        color,
-                                        settings.widths.aircraft_heading,
-                                        settings.aircraft_heading_style != RADAR_HEADING_STYLE_LINE);
+        if (show_history) {
+            aircraft_track_history_t *track = track_history_for_aircraft(&snapshot[i]);
+            if (track) {
+                for (size_t h = 1; h < track->count && h < AIRCRAFT_HISTORY_POINTS; ++h) {
+                    if (track->points[h].distance_mi > (float)range_mi) {
+                        continue;
+                    }
+                    float hist_rad = ((float)track->points[h].bearing_deg - 90.0f) * PI_F / 180.0f;
+                    int hist_distance = (int)(((float)RADAR_RADIUS * track->points[h].distance_mi) /
+                                              (float)range_mi);
+                    int hist_x = RADAR_CENTER + (int)(cosf(hist_rad) * hist_distance);
+                    int hist_y = RADAR_CENTER + (int)(sinf(hist_rad) * hist_distance);
+                    int opa = dimmed ? LV_OPA_20 : (LV_OPA_60 - ((int)h * 4));
+                    if (opa < LV_OPA_20) {
+                        opa = LV_OPA_20;
+                    }
+                    draw_aircraft_history_dot(aircraft_canvas, hist_x, hist_y, color, (lv_opa_t)opa);
+                }
+            }
         }
-        draw_aircraft_dot(aircraft_canvas, x, y, color);
+        if (settings.show_aircraft_heading &&
+            settings.visible.aircraft_heading &&
+            settings.aircraft_heading_style != RADAR_HEADING_STYLE_NONE) {
+            draw_aircraft_heading_indicator(aircraft_canvas, x, y, snapshot[i].heading_deg,
+                                            color, settings.widths.aircraft_heading,
+                                            settings.aircraft_heading_style == RADAR_HEADING_STYLE_ARROW);
+        }
+        draw_aircraft_head_symbol(aircraft_canvas, x, y, color);
     }
 
     lv_display_enable_invalidation(display, true);
@@ -2866,8 +3244,26 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
 
         lv_obj_clear_flag(marker->callsign_label, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(marker->detail_label, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(marker->callsign_label, snapshot[i].callsign);
-        lv_label_set_text(marker->detail_label, snapshot[i].detail);
+        char callsign_text[32];
+        snprintf(callsign_text, sizeof(callsign_text), "%s %s",
+                 snapshot[i].callsign[0] ? snapshot[i].callsign : "--------",
+                 snapshot[i].type[0] ? snapshot[i].type : "----");
+        lv_label_set_text(marker->callsign_label, callsign_text);
+
+        char altitude_text[16];
+        if (snapshot[i].altitude_ft <= 0) {
+            snprintf(altitude_text, sizeof(altitude_text), "GND");
+        } else if (snapshot[i].altitude_ft >= 18000) {
+            snprintf(altitude_text, sizeof(altitude_text), "%03d",
+                     (snapshot[i].altitude_ft + 50) / 100);
+        } else {
+            snprintf(altitude_text, sizeof(altitude_text), "%d", snapshot[i].altitude_ft);
+        }
+
+        char detail_text[32];
+        snprintf(detail_text, sizeof(detail_text), "%s\n%d", altitude_text,
+                 snapshot[i].speed_kt >= 0 ? snapshot[i].speed_kt : 0);
+        lv_label_set_text(marker->detail_label, detail_text);
         const bool dimmed = focus_active && !matches_focus_notification(&snapshot[i]);
         uint32_t color = marker_color(&snapshot[i], false, dimmed);
         lv_obj_set_style_text_color(marker->callsign_label, lv_color_hex(color), 0);
@@ -2895,8 +3291,8 @@ void RadarApp::update_aircraft_labels(const aircraft_data_t *snapshot, size_t co
         if (label_y < 0) {
             label_y = 0;
         }
-        if (label_y > RADAR_SIZE - 30) {
-            label_y = RADAR_SIZE - 30;
+        if (label_y > RADAR_SIZE - 44) {
+            label_y = RADAR_SIZE - 44;
         }
 
         int trend = 0;
@@ -2952,7 +3348,7 @@ void RadarApp::update_notification_banner(const aircraft_data_t *snapshot, size_
             if (!aircraft_matches_filter(aircraft) || aircraft->type[0] == '\0') {
                 continue;
             }
-            if (string_contains_ci(aircraft->type, notification->type_match)) {
+            if (string_equals_trimmed_ci(aircraft->type, notification->type_match)) {
                 active[rule_index] = true;
                 break;
             }
@@ -3087,24 +3483,8 @@ void RadarApp::refresh_static_ui_colors()
                          settings.colors.climb_triangle : settings.colors.descent_triangle;
         lv_obj_set_style_line_color(markers[i].trend_icon, lv_color_hex(color), 0);
     }
-    if (sweep_line) {
-        lv_obj_set_style_line_color(sweep_line, lv_color_hex(settings.colors.sweep), 0);
-        lv_obj_set_style_line_width(sweep_line, settings.widths.sweep, 0);
-    }
-    int trail_count = settings.show_sweep_trail ? settings.sweep_trail_count : 0;
-    if (trail_count < 0) {
-        trail_count = 0;
-    }
-    if (trail_count > (int)SWEEP_TRAIL_COUNT) {
-        trail_count = (int)SWEEP_TRAIL_COUNT;
-    }
-    for (size_t i = 0; i < SWEEP_TRAIL_COUNT; ++i) {
-        if (sweep_trail_lines[i]) {
-            lv_obj_set_style_line_color(sweep_trail_lines[i], lv_color_hex(settings.colors.sweep), 0);
-            lv_obj_set_style_line_width(sweep_trail_lines[i], settings.sweep_trail_width, 0);
-            lv_obj_set_style_line_opa(sweep_trail_lines[i],
-                                      sweep_trail_opacity(i, trail_count), 0);
-        }
+    if (sweep_overlay) {
+        lv_obj_invalidate(sweep_overlay);
     }
 
     set_curved_button_color(&range_button, settings.colors.button_text);
@@ -3298,6 +3678,9 @@ void RadarApp::update_aircraft_ui(lv_timer_t *timer)
     displayed_generation = generation;
     displayed_range_mi = range_mi;
     displayed_settings_generation = settings_generation;
+    if (range_index < MAX_RANGE_SETTINGS && settings.ranges[range_index].show_history_trail) {
+        update_aircraft_track_history(snapshot, count, range_mi, generation);
+    }
     update_aircraft_plot(snapshot, count, range_mi);
     update_aircraft_labels(snapshot, count, range_mi);
     update_notification_banner(snapshot, count, range_mi);
@@ -3309,10 +3692,41 @@ void RadarApp::init_json_allocator(void)
     RadarHttpClient::initJsonAllocator();
 }
 
-/* Return whether haystack contains needle using case-insensitive matching. */
-bool RadarApp::string_contains_ci(const char *haystack, const char *needle)
+/* Return whether two strings are equal after trimming whitespace, ignoring case. */
+bool RadarApp::string_equals_trimmed_ci(const char *left, const char *right)
 {
-    return RadarHttpClient::stringContainsCi(haystack, needle);
+    if (!left || !right) {
+        return false;
+    }
+
+    while (*left && isspace((unsigned char)*left)) {
+        ++left;
+    }
+    while (*right && isspace((unsigned char)*right)) {
+        ++right;
+    }
+
+    const char *left_end = left + strlen(left);
+    const char *right_end = right + strlen(right);
+    while (left_end > left && isspace((unsigned char)*(left_end - 1))) {
+        --left_end;
+    }
+    while (right_end > right && isspace((unsigned char)*(right_end - 1))) {
+        --right_end;
+    }
+
+    size_t left_len = (size_t)(left_end - left);
+    size_t right_len = (size_t)(right_end - right);
+    if (left_len == 0 || left_len != right_len) {
+        return false;
+    }
+
+    for (size_t i = 0; i < left_len; ++i) {
+        if (tolower((unsigned char)left[i]) != tolower((unsigned char)right[i])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /* Convert a display range in miles to the nautical-mile API radius. */
@@ -3587,6 +4001,10 @@ void RadarApp::apply_settings(const radar_settings_t *candidate)
      */
     int current_range = get_current_range_mi();
     bool default_changed = candidate->default_range_mi != settings.default_range_mi;
+    bool weather_changed = candidate->show_airport_weather != settings.show_airport_weather ||
+                           candidate->airport_weather_refresh_min != settings.airport_weather_refresh_min ||
+                           candidate->airport_weather_icon_size != settings.airport_weather_icon_size ||
+                           candidate->show_airports != settings.show_airports;
     settings.apply(*candidate);
 
     size_t count = get_range_count();
@@ -3603,6 +4021,9 @@ void RadarApp::apply_settings(const radar_settings_t *candidate)
     }
 
     settings_generation++;
+    if (weather_changed) {
+        airport_weather_last_fetch_ms = 0;
+    }
     if (wifi_event_group) {
         xEventGroupSetBits(wifi_event_group, FETCH_NOW_BIT);
     }
@@ -3922,6 +4343,181 @@ void RadarApp::aircraft_fetch_task(void *arg)
     fetch_service.task(arg);
 }
 
+/* Forward the airport weather task to the active application instance. */
+void RadarApp::airport_weather_task_entry(void *arg)
+{
+    RadarApp *app = static_cast<RadarApp *>(arg);
+    if (app) {
+        app->airport_weather_task(arg);
+    }
+}
+
+/* Fetch and cache weather for the airports currently visible on the radar. */
+void RadarApp::refresh_airport_weather()
+{
+    if (!settings.show_airports || !settings.show_airport_weather) {
+        if (airport_weather_mutex && xSemaphoreTake(airport_weather_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            airport_weather_count = 0;
+            xSemaphoreGive(airport_weather_mutex);
+        }
+        return;
+    }
+
+    EventBits_t bits = wifi_event_group ? xEventGroupGetBits(wifi_event_group) : 0;
+    if ((bits & WIFI_CONNECTED_BIT) == 0) {
+        return;
+    }
+
+    typedef struct {
+        size_t index;
+        double lat;
+        double lon;
+    } visible_airport_t;
+
+    visible_airport_t visible[MAX_AIRPORT_WEATHER] = {};
+    size_t visible_count = 0;
+    int range_mi = get_current_range_mi();
+    double center_lat = settings.center_lat;
+    double center_lon = settings.center_lon;
+    get_radar_center(&center_lat, &center_lon);
+    double lat_span = (double)range_mi / 69.0;
+    double cos_lat = fabs(cos(deg_to_rad(center_lat)));
+    double lon_span = (double)range_mi / (69.0 * fmax(cos_lat, 0.15));
+
+    for (size_t i = 0; i < airport_record_count && visible_count < MAX_AIRPORT_WEATHER; ++i) {
+        double lat = (double)airport_records[i].lat_e6 / 1000000.0;
+        double lon = (double)airport_records[i].lon_e6 / 1000000.0;
+        if (lat < center_lat - lat_span || lat > center_lat + lat_span ||
+            lon < center_lon - lon_span || lon > center_lon + lon_span) {
+            continue;
+        }
+
+        double distance = distance_miles(center_lat, center_lon, lat, lon);
+        if (distance < 0.0 || distance > (double)range_mi) {
+            continue;
+        }
+
+        visible[visible_count++] = {i, lat, lon};
+    }
+
+    airport_weather_t fetched[MAX_AIRPORT_WEATHER] = {};
+    size_t fetched_count = 0;
+    if (visible_count == 0) {
+        if (airport_weather_mutex && xSemaphoreTake(airport_weather_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            airport_weather_count = 0;
+            airport_weather_last_fetch_ms = esp_timer_get_time() / 1000LL;
+            xSemaphoreGive(airport_weather_mutex);
+        }
+        return;
+    }
+
+    char url[3072];
+    int used = snprintf(url, sizeof(url), "https://api.open-meteo.com/v1/forecast?latitude=");
+    for (size_t i = 0; i < visible_count && used > 0 && used < (int)sizeof(url); ++i) {
+        used += snprintf(url + used, sizeof(url) - (size_t)used,
+                         "%s%.5f", i == 0 ? "" : ",", visible[i].lat);
+    }
+    if (used > 0 && used < (int)sizeof(url)) {
+        used += snprintf(url + used, sizeof(url) - (size_t)used, "&longitude=");
+    }
+    for (size_t i = 0; i < visible_count && used > 0 && used < (int)sizeof(url); ++i) {
+        used += snprintf(url + used, sizeof(url) - (size_t)used,
+                         "%s%.5f", i == 0 ? "" : ",", visible[i].lon);
+    }
+    if (used <= 0 || used >= (int)sizeof(url)) {
+        ESP_LOGW(TAG, "Airport weather request too large for %u airports", (unsigned)visible_count);
+        return;
+    }
+    snprintf(url + used, sizeof(url) - (size_t)used,
+             "&current=weather_code,cloud_cover,precipitation,rain");
+
+    char *response = nullptr;
+    int response_len = 0;
+    esp_err_t err = http_client.fetchBuffer(url, "application/json", nullptr,
+                                            4096, 64 * 1024, &response, &response_len,
+                                            0, PHOTO_OPTIONAL_HTTP_TIMEOUT_MS);
+    if (err != ESP_OK || !response) {
+        return;
+    }
+
+    cJSON *root = cJSON_ParseWithLength(response, response_len);
+    heap_caps_free(response);
+    if (!root) {
+        return;
+    }
+
+    auto parse_weather_item = [&](cJSON *item, size_t visible_index) {
+        if (!cJSON_IsObject(item) || visible_index >= visible_count ||
+            fetched_count >= MAX_AIRPORT_WEATHER) {
+            return;
+        }
+
+        cJSON *current = cJSON_GetObjectItemCaseSensitive(item, "current");
+        cJSON *weather_code = cJSON_GetObjectItemCaseSensitive(current, "weather_code");
+        cJSON *cloud_cover = cJSON_GetObjectItemCaseSensitive(current, "cloud_cover");
+        cJSON *precipitation = cJSON_GetObjectItemCaseSensitive(current, "precipitation");
+        cJSON *rain = cJSON_GetObjectItemCaseSensitive(current, "rain");
+        if (!cJSON_IsNumber(weather_code)) {
+            return;
+        }
+
+        fetched[fetched_count].airport_index = visible[visible_index].index;
+        fetched[fetched_count].weather_code = weather_code->valueint;
+        fetched[fetched_count].cloud_cover = cJSON_IsNumber(cloud_cover) ? cloud_cover->valueint : -1;
+        fetched[fetched_count].precipitation_mm =
+            cJSON_IsNumber(precipitation) ? (float)precipitation->valuedouble : 0.0f;
+        fetched[fetched_count].rain_mm = cJSON_IsNumber(rain) ? (float)rain->valuedouble : 0.0f;
+        fetched[fetched_count].fetched_ms = esp_timer_get_time() / 1000LL;
+        fetched[fetched_count].valid = true;
+        ++fetched_count;
+    };
+
+    if (cJSON_IsArray(root)) {
+        size_t count = cJSON_GetArraySize(root);
+        if (count > visible_count) {
+            count = visible_count;
+        }
+        for (size_t i = 0; i < count; ++i) {
+            parse_weather_item(cJSON_GetArrayItem(root, (int)i), i);
+        }
+    } else {
+        parse_weather_item(root, 0);
+    }
+    cJSON_Delete(root);
+
+    if (airport_weather_mutex && xSemaphoreTake(airport_weather_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        memcpy(airport_weather, fetched, sizeof(fetched));
+        airport_weather_count = fetched_count;
+        airport_weather_last_fetch_ms = esp_timer_get_time() / 1000LL;
+        xSemaphoreGive(airport_weather_mutex);
+    }
+
+    if (fetched_count > 0) {
+        ++settings_generation;
+        ESP_LOGI(TAG, "Updated airport weather for %u airports", (unsigned)fetched_count);
+    }
+}
+
+/* Periodically refresh visible airport weather without blocking the UI task. */
+void RadarApp::airport_weather_task(void *arg)
+{
+    (void)arg;
+    while (true) {
+        int interval_min = settings.airport_weather_refresh_min;
+        if (interval_min < RADAR_SETTINGS_MIN_AIRPORT_WEATHER_REFRESH_MIN) {
+            interval_min = RADAR_SETTINGS_DEFAULT_AIRPORT_WEATHER_REFRESH_MIN;
+        }
+        int64_t now_ms = esp_timer_get_time() / 1000LL;
+        int64_t interval_ms = (int64_t)interval_min * 60LL * 1000LL;
+        if (settings.show_airport_weather &&
+            (airport_weather_last_fetch_ms == 0 ||
+             now_ms - airport_weather_last_fetch_ms >= interval_ms)) {
+            refresh_airport_weather();
+        }
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
 /* Initialise NVS, erasing once if the partition is incompatible. */
 void RadarApp::init_nvs(void)
 {
@@ -4236,31 +4832,15 @@ void RadarApp::create_radar_ui(void)
     lv_obj_set_pos(gps_status_label, 92, 42);
     lv_obj_add_flag(gps_status_label, LV_OBJ_FLAG_HIDDEN);
 
-    int trail_count = settings.show_sweep_trail ? settings.sweep_trail_count : 0;
-    if (trail_count < 0) {
-        trail_count = 0;
-    }
-    if (trail_count > (int)SWEEP_TRAIL_COUNT) {
-        trail_count = (int)SWEEP_TRAIL_COUNT;
-    }
-    for (size_t i = 0; i < SWEEP_TRAIL_COUNT; ++i) {
-        sweep_trail_lines[i] = lv_line_create(radar);
-        lv_obj_set_size(sweep_trail_lines[i], 1, 1);
-        lv_obj_set_pos(sweep_trail_lines[i], RADAR_CENTER, RADAR_CENTER);
-        lv_obj_set_style_line_color(sweep_trail_lines[i], lv_color_hex(settings.colors.sweep), 0);
-        lv_obj_set_style_line_width(sweep_trail_lines[i], settings.sweep_trail_width, 0);
-        lv_obj_set_style_line_rounded(sweep_trail_lines[i], true, 0);
-        lv_obj_set_style_line_opa(sweep_trail_lines[i],
-                                  sweep_trail_opacity(i, trail_count), 0);
-    }
-
-    sweep_line = lv_line_create(radar);
-    lv_obj_set_size(sweep_line, 1, 1);
-    lv_obj_set_pos(sweep_line, RADAR_CENTER, RADAR_CENTER);
-    lv_obj_set_style_line_color(sweep_line, lv_color_hex(settings.colors.sweep), 0);
-    lv_obj_set_style_line_width(sweep_line, settings.widths.sweep, 0);
-    lv_obj_set_style_line_rounded(sweep_line, true, 0);
-    lv_obj_set_style_line_opa(sweep_line, LV_OPA_COVER, 0);
+    sweep_overlay = lv_obj_create(radar);
+    lv_obj_remove_style_all(sweep_overlay);
+    lv_obj_set_size(sweep_overlay, RADAR_SIZE, RADAR_SIZE);
+    lv_obj_set_pos(sweep_overlay, 0, 0);
+    lv_obj_set_style_bg_opa(sweep_overlay, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(sweep_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(sweep_overlay, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(sweep_overlay, RadarApp::sweep_draw_event_entry,
+                        LV_EVENT_DRAW_MAIN, NULL);
 
     create_aircraft_markers(radar);
     create_radar_touch_layer(radar);
@@ -4363,6 +4943,7 @@ void RadarApp::run()
 
     aircraft_mutex = xSemaphoreCreateMutex();
     wifi_mutex = xSemaphoreCreateMutex();
+    airport_weather_mutex = xSemaphoreCreateMutex();
     http_client.init();
     runway_service.init();
     wifi_event_group = xEventGroupCreate();
@@ -4393,6 +4974,11 @@ void RadarApp::run()
     xTaskCreatePinnedToCoreWithCaps(RadarApp::aircraft_fetch_task_entry, "aircraft_fetch",
                                     FETCH_TASK_STACK, this, FETCH_TASK_PRIORITY, NULL,
                                     FETCH_TASK_CORE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    xTaskCreatePinnedToCoreWithCaps(RadarApp::airport_weather_task_entry, "airport_weather",
+                                    AIRPORT_WEATHER_TASK_STACK, this,
+                                    AIRPORT_WEATHER_TASK_PRIORITY, NULL,
+                                    AIRPORT_WEATHER_TASK_CORE,
+                                    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 }
 
 /* ESP-IDF entry point; keep the application static so callbacks can reference it. */

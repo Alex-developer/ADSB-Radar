@@ -346,6 +346,31 @@ esp_err_t SettingsServer::sendSettingsJson(httpd_req_t *req)
     cJSON_AddNumberToObject(gps_json, "effectiveLat", effective_lat);
     cJSON_AddNumberToObject(gps_json, "effectiveLon", effective_lon);
 
+    cJSON *wifi_json = cJSON_GetObjectItem(root, "wifi");
+    if (!cJSON_IsObject(wifi_json)) {
+        wifi_json = cJSON_AddObjectToObject(root, "wifi");
+    }
+    if (wifi_json) {
+        EventBits_t bits = owner->wifi_event_group ? xEventGroupGetBits(owner->wifi_event_group) : 0;
+        bool connected = (bits & WIFI_CONNECTED_BIT) != 0;
+        bool portal_active = owner->wifi_portal_active || ((bits & WIFI_PORTAL_ACTIVE_BIT) != 0);
+        cJSON_AddBoolToObject(wifi_json, "connected", connected);
+        cJSON_AddBoolToObject(wifi_json, "portalActive", portal_active);
+        cJSON_AddBoolToObject(wifi_json, "started", owner->wifi_started);
+        cJSON_AddBoolToObject(wifi_json, "recovering", owner->wifi_recovering);
+
+        char ip_text[24] = "--";
+        if (portal_active) {
+            snprintf(ip_text, sizeof(ip_text), "%s", WIFI_SETUP_AP_IP);
+        } else if (connected && owner->wifi_sta_netif) {
+            esp_netif_ip_info_t info = {};
+            if (esp_netif_get_ip_info(owner->wifi_sta_netif, &info) == ESP_OK && info.ip.addr != 0) {
+                snprintf(ip_text, sizeof(ip_text), IPSTR, IP2STR(&info.ip));
+            }
+        }
+        cJSON_AddStringToObject(wifi_json, "ip", ip_text);
+    }
+
     json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!json) {
@@ -856,6 +881,8 @@ esp_err_t SettingsServer::wifiScanHandler(httpd_req_t *req)
         cJSON *network = cJSON_CreateObject();
         cJSON_AddStringToObject(network, "ssid", (const char *)aps[i].ssid);
         cJSON_AddNumberToObject(network, "rssi", aps[i].rssi);
+        cJSON_AddNumberToObject(network, "channel", aps[i].primary);
+        cJSON_AddNumberToObject(network, "auth", aps[i].authmode);
         cJSON_AddItemToArray(networks, network);
     }
     free(aps);
