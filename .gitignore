@@ -1,0 +1,36 @@
+# ESP-IDF build output
+build/
+build_*/
+*.elf
+*.bin
+*.map
+*.hex
+
+# ESP-IDF dependency downloads
+managed_components/
+
+# Local/generated config backups
+sdkconfig.old
+sdkconfig.bak
+sdkconfig.ci
+
+# Python/tooling cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# SquareLine generated editor backups
+**/squareline/backup/**
+**/squareline/autosave/**
+
+# Legacy vendored LVGL location, if regenerated locally
+components/lvgl/**
