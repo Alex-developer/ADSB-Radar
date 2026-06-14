@@ -59,6 +59,9 @@ public:
     /* Save WiFi credentials submitted from the settings page. */
     esp_err_t wifiSaveHandler(httpd_req_t *req);
 
+    /* Acknowledge a browser reboot request and restart the ESP32. */
+    esp_err_t rebootHandler(httpd_req_t *req);
+
     /* Start the station-mode settings server. */
     bool start();
 

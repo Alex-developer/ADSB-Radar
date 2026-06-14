@@ -56,6 +56,8 @@
 #define AIRCRAFT_DATA_SOURCE_ADSB_FI 3
 #define AIRCRAFT_ROUTE_STYLE_SHORT 0
 #define AIRCRAFT_ROUTE_STYLE_LONG 1
+#define RADAR_DISPLAY_TYPE_720_720_4_INCH 0
+#define RADAR_DISPLAY_TYPE_800_800_3_4_INCH 1
 #define RADAR_HW_ROTARY_RANGE 0
 #define RADAR_HW_ROTARY_MENU 1
 #define RADAR_HW_BUTTON_NONE 0
@@ -229,6 +231,7 @@ typedef struct {
     char center_location_state[48];
     char center_location_country[4];
     int default_range_mi;
+    int display_type;
     bool show_sweep;
     int sweep_step_deg;
     int sweep_draw_interval_ms;

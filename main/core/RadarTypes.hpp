@@ -21,14 +21,24 @@
  * can all run together. Prefer changing these constants with a monitor session
  * open so heap and watchdog behaviour can be checked on real hardware.
  */
-#define SCREEN_W BSP_LCD_H_RES
-#define SCREEN_H BSP_LCD_V_RES
-#define RADAR_SIZE 700
-#define RADAR_CENTER (RADAR_SIZE / 2)
-#define RADAR_RADIUS 330
-#define RADAR_BG_RADIUS 350
-#define RADAR_Y 10
-#define CONTROL_ARC_RADIUS (RADAR_RADIUS + 14)
+extern int radar_screen_w;
+extern int radar_screen_h;
+extern int radar_size;
+extern int radar_center;
+extern int radar_radius;
+extern int radar_bg_radius;
+extern int radar_y;
+extern int control_arc_radius;
+extern int heading_label_radius;
+
+#define SCREEN_W radar_screen_w
+#define SCREEN_H radar_screen_h
+#define RADAR_SIZE radar_size
+#define RADAR_CENTER radar_center
+#define RADAR_RADIUS radar_radius
+#define RADAR_BG_RADIUS radar_bg_radius
+#define RADAR_Y radar_y
+#define CONTROL_ARC_RADIUS control_arc_radius
 #define CONTROL_ARC_WIDTH 20
 #define CONTROL_BUTTON_W 184
 #define CONTROL_BUTTON_H 56
@@ -49,7 +59,7 @@
 #define HEADING_LABEL_COUNT 12
 #define RADAR_GRID_MARGIN 20
 #define RADAR_GRID_SPACING 50
-#define HEADING_LABEL_RADIUS (RADAR_RADIUS - 28)
+#define HEADING_LABEL_RADIUS heading_label_radius
 #define SWEEP_TIMER_MS 10
 #define HTTP_RESPONSE_INITIAL_BYTES (96 * 1024)
 #define HTTP_RESPONSE_MAX_BYTES (512 * 1024)

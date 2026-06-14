@@ -314,6 +314,9 @@ private:
     /* Forward the settings WiFi save request to the active app instance. */
     static esp_err_t settings_wifi_save_handler_entry(httpd_req_t *req);
 
+    /* Forward the settings reboot request to the active app instance. */
+    static esp_err_t settings_reboot_handler_entry(httpd_req_t *req);
+
     /* Forward a range menu row event to the active app instance. */
     static void range_menu_event_entry(lv_event_t *event);
 
@@ -902,6 +905,9 @@ private:
 
     /* Save station WiFi credentials from the settings page. */
     esp_err_t settings_wifi_save_handler(httpd_req_t *req);
+
+    /* Reboot the ESP32 from the settings dashboard. */
+    esp_err_t settings_reboot_handler(httpd_req_t *req);
 
     /* Start the HTTP server that hosts the settings application. */
     bool start_settings_http_server();

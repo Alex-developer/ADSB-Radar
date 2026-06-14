@@ -1,7 +1,8 @@
 # ADSB Radar
 
 ADSB Radar is ESP-IDF firmware for the Waveshare
-ESP32-P4-WIFI6-Touch-LCD-XC with the 4-inch 720x720 round touch display. It is a
+ESP32-P4-WIFI6-Touch-LCD-XC round touch display. It supports both the 4-inch
+720x720 panel and the 3.4-inch 800x800 panel from one firmware image. It is a
 standalone aircraft radar display: the ESP32 joins WiFi, fetches live ADS-B
 traffic, plots aircraft around a configurable centre point, and draws a
 radar-style screen with range rings, heading information, altitude colours,
@@ -60,22 +61,29 @@ These screenshots are from `assets/UI Images`.
 | ![Notifications page with single-line aircraft type rules](assets/UI%20Images/Notifications.png) | ![Ranges page with compact range preset rows](assets/UI%20Images/Ranges.png) |
 | Notification rules can colour, label, bold, or focus aircraft matching an exact aircraft type. | Up to ten range presets can be configured with refresh intervals, label limits, and optional history trails. |
 
-| Hardware Control | WiFi |
+| Hardware | WiFi |
 | --- | --- |
-| ![Hardware Control page with SSD1306 module settings and a placeholder ST7789T3 tab](assets/UI%20Images/Hardware.png) | ![WiFi page showing current connection and scanned networks](assets/UI%20Images/Wifi.png) |
-| Hardware Control covers the SSD1306 status display, physical buttons, rotary encoder pins, and action mapping. | WiFi setup can scan networks, save credentials, and report the current connection state. |
+| ![Hardware page with display type, SSD1306 module settings and a placeholder ST7789T3 tab](assets/UI%20Images/Hardware.png) | ![WiFi page showing current connection and scanned networks](assets/UI%20Images/Wifi.png) |
+| Hardware covers the LCD profile, SSD1306 status display, physical buttons, rotary encoder pins, and action mapping. | WiFi setup can scan networks, save credentials, and report the current connection state. |
 
 | Colour groups | Radar configuration |
 | --- | --- |
 | ![Display colour settings grouped into tabs](assets/UI%20Images/Colours.png) | ![Radar configuration controls in the browser UI](assets/UI%20Images/Radar%20Config.png) |
 | Colour, width, visibility, and label controls are grouped so busy pages stay manageable. | The radar configuration controls expose the low-level display options without needing a rebuild. |
 
-The project is configured for the 4-inch 720x720 display variant:
+The project is built as one firmware image for the supported round LCD variants:
 
-- `CONFIG_BSP_LCD_TYPE_720_720_4_INCH=y`
+- 4-inch 720x720 round LCD.
+- 3.4-inch 800x800 round LCD.
 - ESP32-P4 target
 - Waveshare ESP32-P4 WiFi 6 Touch LCD XC BSP
 - LVGL 9 user interface
+
+The firmware defaults to the 4-inch 720x720 profile. To use the 3.4-inch
+800x800 panel, open the browser admin after flashing and select `Hardware ->
+Display Type`, then save and reboot when prompted. The selected panel profile is
+stored in NVS, so it is retained across normal firmware updates unless NVS is
+erased.
 
 Waveshare hardware documentation:
 
@@ -84,7 +92,8 @@ Waveshare hardware documentation:
 
 ## Features
 
-- Full-screen radar drawn for the round 4-inch 720x720 LCD.
+- Full-screen radar drawn for the supported round LCD profiles: 4-inch 720x720
+  and 3.4-inch 800x800.
 - Live aircraft data from Airplanes.live, ADSB.lol, ADSB.fi, or a local
   `aircraft.json` feed such as readsb or dump1090.
 - Touch-screen range control with up to ten configurable ranges, refresh
@@ -115,7 +124,7 @@ Waveshare hardware documentation:
 - Captive portal for first-time WiFi setup and a radar WiFi menu for IP address,
   changing WiFi, clearing NVS, and rebooting the device.
 - Browser-based Bootstrap admin page with Location, Data Sources, Display,
-  Hardware Control, Notifications, Ranges, WiFi, and Dashboard sections.
+  Hardware, Notifications, Ranges, WiFi, and Dashboard sections.
 - Browser admin supports light and dark themes, stored per browser.
 - Display controls for colours, line widths, visibility, label fonts and sizes,
   tick lengths, radial spacing, sweep step, sweep draw interval, and sweep trail
@@ -133,14 +142,16 @@ Waveshare hardware documentation:
 - Optional physical confirm/back buttons and rotary encoder for range changes
   and a small device-side menu. GPIO pins and the SSD1306 I2C address are
   configurable from the browser.
-- Hardware Control page includes a placeholder tab for future ST7789T3 module
-  options.
+- Hardware page includes Display Type, SSD1306 Module, and a placeholder tab for
+  future ST7789T3 module options.
 
 ## Required Hardware
 
 Required:
 
-- Waveshare ESP32-P4-WIFI6-Touch-LCD-XC, 4-inch 720x720 version.
+- Waveshare ESP32-P4-WIFI6-Touch-LCD-XC with one of these round LCDs:
+  - 4-inch 720x720.
+  - 3.4-inch 800x800.
 - USB cable for flashing, power, and serial monitor.
 - A WiFi network with internet access.
 - A development machine running Linux, macOS, or Windows.
@@ -158,8 +169,8 @@ Optional:
 - A local ADS-B receiver if you prefer to use a local `aircraft.json` feed
   instead of an internet aircraft API.
 
-This firmware is not configured for the 3.4-inch 800x800 variant. That display
-would need a different BSP LCD Kconfig selection and UI layout review.
+The default display profile is 4-inch 720x720. If you are using the 3.4-inch
+800x800 display, change the profile from the browser admin after first boot.
 
 ## Software Required
 
@@ -317,6 +328,11 @@ After the device has joined your WiFi network, the radar screen shows the curren
 status on the WiFi menu. Use the WiFi button on the radar to view the IP address,
 restart captive portal mode, or reboot the ESP32.
 
+If you are using the 3.4-inch 800x800 display, open the browser admin, go to
+`Hardware -> Display Type`, choose the 800x800 profile, save, and accept the
+reboot prompt. The device defaults to the 4-inch 720x720 profile after a fresh
+NVS erase.
+
 ## Browser Admin
 
 When the radar is connected to WiFi, open the device IP address in a browser.
@@ -334,9 +350,10 @@ The admin page is where most of the setup work happens:
 - Display controls the look of the radar: layers, country outlines, runways,
   airport weather, heading indicators, ground aircraft, sweep timing, fading
   trail, colours, line widths, label fonts, tick spacing, and altitude bands.
-- Hardware Control currently has an SSD1306 Module tab for the status OLED,
-  physical button GPIOs, rotary encoder GPIOs, and action mapping. A blank
-  ST7789T3 tab is present ready for the next hardware-control implementation.
+- Hardware has a Display Type tab for the LCD profile, an SSD1306 Module tab for
+  the status OLED, physical button GPIOs, rotary encoder GPIOs, and action
+  mapping. A blank ST7789T3 tab is present ready for the next hardware-control
+  implementation.
 - Notifications configures up to ten exact aircraft-type rules. A match can
   colour the aircraft, keep its label visible, use bold text, show radar banner
   text, and optionally dim every other aircraft.
@@ -454,7 +471,7 @@ The round display has touch controls around the radar edge:
 
 If the optional physical controls are fitted, the rotary encoder can change the
 range or drive the small device menu. The confirm, back, and encoder push
-buttons can be mapped to common actions in the Hardware Control page. The GPIO
+buttons can be mapped to common actions in the Hardware page. The GPIO
 pins are configurable, so the defaults do not have to match your final wiring.
 
 The optional SSD1306 display shows compact status information: WiFi state, IP

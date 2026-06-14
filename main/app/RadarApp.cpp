@@ -65,6 +65,15 @@ enum {
 static constexpr uint32_t ROTARY_POLL_MS = 2;
 
 RadarApp *RadarApp::active_app = nullptr;
+int radar_screen_w = 720;
+int radar_screen_h = 720;
+int radar_size = 700;
+int radar_center = 350;
+int radar_radius = 330;
+int radar_bg_radius = 350;
+int radar_y = 10;
+int control_arc_radius = 344;
+int heading_label_radius = 302;
 
 /* Draw a filled climb/descent triangle for an aircraft label marker. */
 static void trend_triangle_draw_event(lv_event_t *event)
@@ -394,6 +403,12 @@ esp_err_t RadarApp::settings_wifi_scan_handler_entry(httpd_req_t *req)
 esp_err_t RadarApp::settings_wifi_save_handler_entry(httpd_req_t *req)
 {
     return active_app ? active_app->settings_wifi_save_handler(req) : ESP_FAIL;
+}
+
+/* Forward reboot requests to the active application instance. */
+esp_err_t RadarApp::settings_reboot_handler_entry(httpd_req_t *req)
+{
+    return active_app ? active_app->settings_reboot_handler(req) : ESP_FAIL;
 }
 
 /* Run the captive portal DNS task through a concrete application instance. */
@@ -3927,6 +3942,12 @@ esp_err_t RadarApp::settings_wifi_save_handler(httpd_req_t *req)
     return settings_server.wifiSaveHandler(req);
 }
 
+/* Reboot the ESP32 after acknowledging the settings dashboard request. */
+esp_err_t RadarApp::settings_reboot_handler(httpd_req_t *req)
+{
+    return settings_server.rebootHandler(req);
+}
+
 /* Start the station-mode settings HTTP server. */
 bool RadarApp::start_settings_http_server(void)
 {
@@ -4581,7 +4602,7 @@ void RadarApp::create_radar_ui(void)
     create_radar_touch_layer(radar);
 
     int range_x = 42;
-    int range_y = 592;
+    int range_y = SCREEN_H - 128;
     make_curved_button(screen, &range_button, 212, 248,
                        range_x, range_y, CONTROL_BUTTON_W, CONTROL_BUTTON_H,
                        "RNG --", NULL, settings.colors.button_text);
@@ -4633,11 +4654,11 @@ void RadarApp::create_radar_ui(void)
     lv_obj_add_event_cb(range_button_right_hitbox, RadarApp::range_button_event_entry,
                         LV_EVENT_CLICKED, (void *)(intptr_t)1);
     make_curved_button(screen, &wifi_button, 162, 198,
-                       (SCREEN_W - CONTROL_BUTTON_W) / 2, 650,
+                       (SCREEN_W - CONTROL_BUTTON_W) / 2, SCREEN_H - 70,
                        CONTROL_BUTTON_W, CONTROL_BUTTON_H,
                        "WIFI WAIT", RadarApp::wifi_button_event_entry, settings.colors.button_text);
     make_curved_button(screen, &status_button, 112, 148,
-                       SCREEN_W - 42 - CONTROL_BUTTON_W, 592,
+                       SCREEN_W - 42 - CONTROL_BUTTON_W, SCREEN_H - 128,
                        CONTROL_BUTTON_W, CONTROL_BUTTON_H,
                        "DATA START", RadarApp::status_button_event_entry, settings.colors.button_status);
 
@@ -4686,6 +4707,22 @@ void RadarApp::run()
     init_nvs();
     init_json_allocator();
     settings.load();
+    bsp_display_set_runtime_lcd_type(settings.display_type == RADAR_DISPLAY_TYPE_800_800_3_4_INCH ?
+                                     BSP_RUNTIME_LCD_TYPE_800_800_3_4_INCH :
+                                     BSP_RUNTIME_LCD_TYPE_720_720_4_INCH);
+    radar_screen_w = BSP_LCD_H_RES;
+    radar_screen_h = BSP_LCD_V_RES;
+    radar_size = radar_screen_w < radar_screen_h ? radar_screen_w - 20 : radar_screen_h - 20;
+    if (radar_size < 700) {
+        radar_size = 700;
+    }
+    radar_center = radar_size / 2;
+    radar_bg_radius = radar_center;
+    radar_radius = radar_center - 20;
+    radar_y = 10;
+    control_arc_radius = radar_radius + 14;
+    heading_label_radius = radar_radius - 28;
+    ESP_LOGI(TAG, "Selected display profile: %dx%d", radar_screen_w, radar_screen_h);
     set_range_to_default();
     init_aircraft_storage();
 

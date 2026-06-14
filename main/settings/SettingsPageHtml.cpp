@@ -245,7 +245,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#general" type="button" title="Location"><i class="bi bi-geo-alt nav-icon" aria-hidden="true"></i><span class="nav-label">Location</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#apiKeys" type="button" title="Data Sources"><i class="bi bi-database nav-icon" aria-hidden="true"></i><span class="nav-label">Data Sources</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#colours" type="button" title="Display"><i class="bi bi-palette nav-icon" aria-hidden="true"></i><span class="nav-label">Display</span></button></li>
-            <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#hardwareControl" type="button" title="Hardware Control"><i class="bi bi-cpu nav-icon" aria-hidden="true"></i><span class="nav-label">Hardware Control</span></button></li>
+            <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#hardwareControl" type="button" title="Hardware"><i class="bi bi-cpu nav-icon" aria-hidden="true"></i><span class="nav-label">Hardware</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#notifications" type="button" title="Notifications"><i class="bi bi-bell nav-icon" aria-hidden="true"></i><span class="nav-label">Notifications</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#ranges" type="button" title="Ranges"><i class="bi bi-broadcast-pin nav-icon" aria-hidden="true"></i><span class="nav-label">Ranges</span></button></li>
             <li class="nav-item"><button class="nav-link w-100" data-bs-toggle="tab" data-bs-target="#wifi" type="button" title="WiFi"><i class="bi bi-wifi nav-icon" aria-hidden="true"></i><span class="nav-label">WiFi</span></button></li>
@@ -259,6 +259,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
           <button class="btn btn-outline-secondary" type="button" data-theme-choice="light" title="Light theme"><i class="bi bi-sun me-1"></i>Light</button>
           <button class="btn btn-outline-secondary" type="button" data-theme-choice="dark" title="Dark theme"><i class="bi bi-moon-stars me-1"></i>Dark</button>
         </div>
+        <button id="rebootDevice" class="btn btn-outline-danger" type="button"><i class="bi bi-power me-1"></i>Reboot</button>
         <div class="status-card">
           <span class="brand-kicker me-2">Save status</span>
           <span id="saveStatus" class="badge rounded-pill text-bg-secondary">Loading</span>
@@ -498,7 +499,7 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
       <div class="section-title">
         <div class="section-heading">
           <div class="section-icon"><i class="bi bi-cpu"></i></div>
-          <div><h2>Hardware Control</h2><p>Configure the optional OLED status display, buttons, rotary encoder pins, and on-device menu actions.</p></div>
+          <div><h2>Hardware</h2><p>Configure the display profile, optional OLED status display, buttons, rotary encoder pins, and device-side menu actions.</p></div>
         </div>
         <div class="section-actions"><button class="btn btn-primary save-settings">Save Hardware</button></div>
       </div>
@@ -632,7 +633,9 @@ extern const char SETTINGS_PAGE_HTML[] = R"HTML(<!doctype html>
           <div class="section-icon"><i class="bi bi-speedometer2"></i></div>
           <div><h2>Dashboard</h2><p>Live device telemetry, heap usage, active caches, network state, and data pipeline status.</p></div>
         </div>
-        <div class="section-actions"><button id="refreshDeviceStatus" class="btn btn-outline-primary" type="button">Refresh</button></div>
+        <div class="section-actions">
+          <button id="refreshDeviceStatus" class="btn btn-outline-primary" type="button">Refresh</button>
+        </div>
       </div>
       <ul class="nav style-tabs mb-0" id="statusSubTabs" role="tablist">
         <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#statusInfo" type="button" role="tab">Info</button></li>
@@ -1157,11 +1160,20 @@ function renderHardwareControls(data){
   ];
   const formatI2cAddress=v=>'0x'+Number(v??0x3c).toString(16).padStart(2,'0');
   let content=$('#hardwareControlsContent').html(`<ul class="nav style-tabs flex-nowrap overflow-auto" id="hardwareTabs" role="tablist">
-    <li class="nav-item" role="presentation"><button class="nav-link active" id="hardware-tab-ssd1306" data-bs-toggle="tab" data-bs-target="#hardware-pane-ssd1306" type="button" role="tab" aria-controls="hardware-pane-ssd1306" aria-selected="true">SSD1306 Module</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link active" id="hardware-tab-display-type" data-bs-toggle="tab" data-bs-target="#hardware-pane-display-type" type="button" role="tab" aria-controls="hardware-pane-display-type" aria-selected="true">Display Type</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" id="hardware-tab-ssd1306" data-bs-toggle="tab" data-bs-target="#hardware-pane-ssd1306" type="button" role="tab" aria-controls="hardware-pane-ssd1306" aria-selected="false">SSD1306 Module</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" id="hardware-tab-st7789t3" data-bs-toggle="tab" data-bs-target="#hardware-pane-st7789t3" type="button" role="tab" aria-controls="hardware-pane-st7789t3" aria-selected="false">ST7789T3</button></li>
   </ul>
   <div class="tab-content style-tab-content" id="hardwareTabContent">
-    <div class="tab-pane fade show active" id="hardware-pane-ssd1306" role="tabpanel" aria-labelledby="hardware-tab-ssd1306" tabindex="0">
+    <div class="tab-pane fade show active" id="hardware-pane-display-type" role="tabpanel" aria-labelledby="hardware-tab-display-type" tabindex="0">
+      <div class="display-card">
+        <div class="display-card-head"><div class="editor-card-icon"><i class="bi bi-aspect-ratio"></i></div><div><h3>Display Type</h3><p>Select the LCD fitted to this device. The saved display profile is applied after the ESP32 reboots.</p></div></div>
+        <div class="row g-3">
+          <div class="col-lg-6 col-md-8"><label class="form-label" for="displayType"><i class="bi bi-display"></i>LCD profile</label><select id="displayType" class="form-select"><option value="720_720_4">4-inch round LCD, 720 x 720</option><option value="800_800_3_4">3.4-inch round LCD, 800 x 800</option></select><div class="form-text">Save the settings, then reboot for the panel initialisation and radar layout to change.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="hardware-pane-ssd1306" role="tabpanel" aria-labelledby="hardware-tab-ssd1306" tabindex="0">
       <div class="display-card">
         <div class="display-card-head"><div class="editor-card-icon"><i class="bi bi-display"></i></div><div><h3>SSD1306 Module</h3><p>Configure the optional OLED status display, buttons, rotary encoder pins, and on-device menu actions.</p></div></div>
         <div class="row g-3">
@@ -1191,6 +1203,7 @@ function renderHardwareControls(data){
   $('.hardware-action-select',content).each(function(){
     $(this).html(hardwareActions.map(a=>`<option value="${a[0]}">${a[1]}</option>`).join(''));
   });
+  $('#displayType',content).val((data.general&&data.general.displayType)||'720_720_4');
   let hw=(data.interface&&data.interface.hardware)||{};
   $('#hardwareControlsEnabled',content).prop('checked',hw.enabled!==false);
   $('#hardwareShowHints',content).prop('checked',hw.showHints!==false);
@@ -1263,15 +1276,16 @@ function updateWifiCard(wifi){
 	// Parse a hardware address field, accepting decimal or 0x-prefixed hex.
 	function parseHardwareAddress(value,fallback){ let text=String(value||'').trim().toLowerCase(); let parsed=text.startsWith('0x')?parseInt(text,16):parseInt(text,10); return Number.isFinite(parsed)?parsed:fallback; }
 	// Build the complete settings payload sent to the ESP32.
-	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportWeather:$('#showAirportWeather').is(':checked'), airportWeatherRefreshMin:+$('#airportWeatherRefreshMin').val()||15, airportWeatherIconSize:+$('#airportWeatherIconSize').val()||14, showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked'), hardware:{enabled:$('#hardwareControlsEnabled').is(':checked'), showHints:$('#hardwareShowHints').is(':checked'), menuTimeoutSec:+$('#hardwareMenuTimeoutSec').val()||15, oledI2cAddr:parseHardwareAddress($('#hardwareOledI2cAddr').val(),0x3c), confirmGpio:+$('#hardwareConfirmGpio').val()||0, backGpio:+$('#hardwareBackGpio').val()||0, rotaryAGpio:+$('#hardwareRotaryAGpio').val()||0, rotaryBGpio:+$('#hardwareRotaryBGpio').val()||0, rotaryPushGpio:+$('#hardwareRotaryPushGpio').val()||0, rotaryAction:$('#hardwareRotaryAction').val(), confirmAction:$('#hardwareConfirmAction').val(), backAction:$('#hardwareBackAction').val(), pushAction:$('#hardwarePushAction').val()}}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
+	function collectSettings(){ let airport=selectedAirport||(cfg&&cfg.general&&cfg.general.airport)||{}; let location=selectedLocation||(cfg&&cfg.general&&cfg.general.location)||{}; let general={centerSource:$('#centerSource').val(), lat:+$('#lat').val(), lon:+$('#lon').val(), defaultRange:+$('#defaultRange').val(), displayType:$('#displayType').val(), dataSource:$('#dataSource').val(), localAircraftUrl:$('#localAircraftUrl').val().trim(), airport:airport, location:location}; return {general:general, apiKeys:{airportDbToken:$('#airportDbToken').val().trim(), openWeatherApiKey:$('#openWeatherApiKey').val().trim()}, interface:{showSweep:$('#showSweep').is(':checked'), sweepStepDeg:+$('#sweepStepDeg').val()||5, sweepDrawIntervalMs:+$('#sweepDrawIntervalMs').val()||50, showSweepTrail:$('#showSweepTrail').is(':checked'), sweepTrailCount:+$('#sweepTrailCount').val()||0, sweepTrailStepDeg:+$('#sweepTrailStepDeg').val()||1, sweepTrailWidth:+$('#sweepTrailWidth').val()||6, showAirports:$('#showAirports').is(':checked'), showAirportWeather:$('#showAirportWeather').is(':checked'), airportWeatherRefreshMin:+$('#airportWeatherRefreshMin').val()||15, airportWeatherIconSize:+$('#airportWeatherIconSize').val()||14, showAirportRunways:$('#showRunways').is(':checked'), showCountries:$('#showCountries').is(':checked'), emergencyRed:$('#emergencyRed').is(':checked'), showAircraftRoutes:$('#showAircraftRoutes').is(':checked'), routeStyle:$('#routeStyle').val(), showGroundAircraft:$('#showGroundAircraft').is(':checked'), groundSpeedKt:+$('#groundSpeedKt').val()||0, headingMode:$('#headingMode').val(), showClimbDescent:$('#showClimbDescent').is(':checked'), hardware:{enabled:$('#hardwareControlsEnabled').is(':checked'), showHints:$('#hardwareShowHints').is(':checked'), menuTimeoutSec:+$('#hardwareMenuTimeoutSec').val()||15, oledI2cAddr:parseHardwareAddress($('#hardwareOledI2cAddr').val(),0x3c), confirmGpio:+$('#hardwareConfirmGpio').val()||0, backGpio:+$('#hardwareBackGpio').val()||0, rotaryAGpio:+$('#hardwareRotaryAGpio').val()||0, rotaryBGpio:+$('#hardwareRotaryBGpio').val()||0, rotaryPushGpio:+$('#hardwareRotaryPushGpio').val()||0, rotaryAction:$('#hardwareRotaryAction').val(), confirmAction:$('#hardwareConfirmAction').val(), backAction:$('#hardwareBackAction').val(), pushAction:$('#hardwarePushAction').val()}}, colors:collectColors(), altitudeColors:collectAltitudeColors(), widths:collectWidths(), visible:collectVisible(), ui:collectUi(), labelStyles:collectLabelStyles(), ranges:collectRanges(), notifications:collectNotifications()}; }
 	// Load factory defaults so reset buttons can restore only selected groups.
 	function loadDefaults(){ $.getJSON('/api/settings/defaults').done(data=>defaults=data); }
 	// Load current settings and refresh the defaults cache.
 	function loadSettings(){ let req=$.getJSON('/api/settings').done(render).fail(()=>status('Load failed','danger')); loadDefaults(); return req; }
 	// Save the current form state and then re-render from the device response.
-	function saveSettings(){ status('Saving','warning'); let target=loadingTarget(); return withAjaxLoading(target,'Saving settings to the ESP32...',()=>$.ajax({url:'/api/settings',method:'POST',data:JSON.stringify(collectSettings()),contentType:'application/json'}).done(()=>loadSettings()).fail(x=>status(x.responseText||'Save failed','danger'))); }
+	function saveSettings(){ status('Saving','warning'); let target=loadingTarget(), previousDisplay=(cfg&&cfg.general&&cfg.general.displayType)||'720_720_4', payload=collectSettings(), displayChanged=payload.general.displayType&&payload.general.displayType!==previousDisplay; return withAjaxLoading(target,'Saving settings to the ESP32...',()=>$.ajax({url:'/api/settings',method:'POST',data:JSON.stringify(payload),contentType:'application/json'}).done(()=>loadSettings().done(()=>{ if(displayChanged&&confirm('The display type has changed. Reboot the ESP32 now so the new panel profile is used?')) rebootDevice(); })).fail(x=>status(x.responseText||'Save failed','danger'))); }
+	function rebootDevice(){ return withAjaxLoading('#espStatus','Rebooting the ESP32...',()=>$.ajax({url:'/api/reboot',method:'POST'})).done(()=>status('Rebooting','warning')).fail(x=>status(x.responseText||'Reboot failed','danger')); }
 	const mainTabByHash={dashboard:'#espStatus',status:'#espStatus',location:'#general','data-sources':'#apiKeys',display:'#colours',hardware:'#hardwareControl','hardware-control':'#hardwareControl',notifications:'#notifications',ranges:'#ranges',wifi:'#wifi'};
-	const hashByMainTab={espStatus:'dashboard',general:'location',apiKeys:'data-sources',colours:'display',hardwareControl:'hardware-control',notifications:'notifications',ranges:'ranges',wifi:'wifi'};
+	const hashByMainTab={espStatus:'dashboard',general:'location',apiKeys:'data-sources',colours:'display',hardwareControl:'hardware',notifications:'notifications',ranges:'ranges',wifi:'wifi'};
 	const statusTabByHash={'dashboard-info':'#statusInfo','dashboard-aircraft':'#statusAircraft','dashboard-screenshot':'#statusScreenshot','dashboard-import-export':'#statusImportExport','status-info':'#statusInfo','status-aircraft':'#statusAircraft','status-screenshot':'#statusScreenshot','status-import-export':'#statusImportExport'};
 	const hashByStatusTab={statusInfo:'dashboard-info',statusAircraft:'dashboard-aircraft',statusScreenshot:'dashboard-screenshot',statusImportExport:'dashboard-import-export'};
 	function importExportStatus(text,cls){ $('#importExportStatus').removeClass().addClass('alert alert-'+(cls||'secondary')+' py-2 mb-3').text(text); }
@@ -1399,6 +1413,10 @@ $('#resetAppearance').on('click',function(){ let keys=[], labelKeys=[]; styleGro
 $('#notificationRows').on('click','.delete-notification',function(){ let index=$('#notificationRows .notify-row').index($(this).closest('.notify-row')); let items=collectNotifications(); items.splice(index,1); items=items.filter(n=>(n.type||'').trim()||(n.text||'').trim()); renderNotificationRows(items); saveSettings(); });
 $('#rangeRows').on('input','.range-miles',()=>rebuildDefaultRange($('#defaultRange').val()));
 $('#resetRanges').on('click',()=>withAjaxLoading('#ranges','Resetting range presets...',()=>$.post('/api/ranges/reset')).done(loadSettings).fail(()=>status('Reset failed','danger')));
+$('#rebootDevice').on('click',function(){
+  if(!confirm('Reboot the ESP32 now?')) return;
+  rebootDevice();
+});
 function scanWifiNetworks(){
   status('Scanning','warning');
   $('#wifiScanDetail').text('Scanning for nearby networks...');

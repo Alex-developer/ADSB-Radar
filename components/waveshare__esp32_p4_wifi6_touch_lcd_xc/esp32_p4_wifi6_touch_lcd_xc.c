@@ -38,9 +38,38 @@ static i2s_chan_handle_t i2s_rx_chan = NULL;
 static const audio_codec_data_if_t *i2s_data_if = NULL; /* Codec data interface */
 #define BSP_ES7210_CODEC_ADDR ES7210_CODEC_DEFAULT_ADDR
 
+static bsp_runtime_lcd_type_t runtime_lcd_type = BSP_RUNTIME_LCD_TYPE_720_720_4_INCH;
+static int runtime_lcd_h_res = 720;
+static int runtime_lcd_v_res = 720;
 
-static const jd9365_lcd_init_cmd_t lcd_init_cmds[] = {
-#if CONFIG_BSP_LCD_TYPE_800_800_3_4_INCH
+void bsp_display_set_runtime_lcd_type(bsp_runtime_lcd_type_t type)
+{
+    runtime_lcd_type = type;
+    if (type == BSP_RUNTIME_LCD_TYPE_800_800_3_4_INCH) {
+        runtime_lcd_h_res = 800;
+        runtime_lcd_v_res = 800;
+    } else {
+        runtime_lcd_h_res = 720;
+        runtime_lcd_v_res = 720;
+    }
+}
+
+bsp_runtime_lcd_type_t bsp_display_get_runtime_lcd_type(void)
+{
+    return runtime_lcd_type;
+}
+
+int bsp_display_get_h_res(void)
+{
+    return runtime_lcd_h_res;
+}
+
+int bsp_display_get_v_res(void)
+{
+    return runtime_lcd_v_res;
+}
+
+static const jd9365_lcd_init_cmd_t lcd_init_cmds_800[] = {
     {0xE0, (uint8_t[]){0x00}, 1, 0},
 
     {0xE1, (uint8_t[]){0x93}, 1, 0},
@@ -258,7 +287,9 @@ static const jd9365_lcd_init_cmd_t lcd_init_cmds[] = {
 
     {0x29, (uint8_t[]){0x00}, 1, 20},
     {0x35, (uint8_t[]){0x00}, 1, 0},
-#else
+};
+
+static const jd9365_lcd_init_cmd_t lcd_init_cmds_720[] = {
     {0xE0, (uint8_t[]){0x00}, 1, 0},
 
     {0xE1, (uint8_t[]){0x93}, 1, 0},
@@ -475,7 +506,6 @@ static const jd9365_lcd_init_cmd_t lcd_init_cmds[] = {
 
     {0x29, (uint8_t[]){0x00}, 1, 20},
     {0x35, (uint8_t[]){0x00}, 1, 0},
-#endif
 };
 
 /* Can be used for `i2s_std_gpio_config_t` and/or `i2s_std_config_t` initialization */
@@ -880,6 +910,14 @@ esp_err_t bsp_display_new_with_handles(const bsp_display_config_t *config, bsp_l
 
     esp_lcd_panel_handle_t disp_panel = NULL;
     ESP_LOGI(TAG, "Install Waveshare ESP32-P4-WIFI6-Touch-LCD-XC LCD control panel");
+    const jd9365_lcd_init_cmd_t *runtime_init_cmds =
+        runtime_lcd_type == BSP_RUNTIME_LCD_TYPE_800_800_3_4_INCH ?
+        lcd_init_cmds_800 : lcd_init_cmds_720;
+    size_t runtime_init_cmds_size =
+        runtime_lcd_type == BSP_RUNTIME_LCD_TYPE_800_800_3_4_INCH ?
+        sizeof(lcd_init_cmds_800) / sizeof(lcd_init_cmds_800[0]) :
+        sizeof(lcd_init_cmds_720) / sizeof(lcd_init_cmds_720[0]);
+    ESP_LOGI(TAG, "Runtime LCD type: %dx%d", BSP_LCD_H_RES, BSP_LCD_V_RES);
 
     esp_lcd_dpi_panel_config_t dpi_config = {
         .dpi_clk_src = MIPI_DSI_DPI_CLK_SRC_DEFAULT,
@@ -906,8 +944,8 @@ esp_err_t bsp_display_new_with_handles(const bsp_display_config_t *config, bsp_l
     dpi_config.num_fbs = CONFIG_BSP_LCD_DPI_BUFFER_NUMS;
 
     jd9365_vendor_config_t vendor_config = {
-        .init_cmds = lcd_init_cmds,
-        .init_cmds_size = sizeof(lcd_init_cmds) / sizeof(lcd_init_cmds[0]),
+        .init_cmds = runtime_init_cmds,
+        .init_cmds_size = runtime_init_cmds_size,
         .mipi_config = {
             .dsi_bus = mipi_dsi_bus,
             .dpi_config = &dpi_config,

@@ -631,6 +631,7 @@ void RadarSettings::setDefaults()
     center_location_lat = center_lat;
     center_location_lon = center_lon;
     default_range_mi = 50;
+    display_type = RADAR_DISPLAY_TYPE_720_720_4_INCH;
     show_sweep = true;
     sweep_step_deg = RADAR_SETTINGS_DEFAULT_SWEEP_STEP_DEG;
     sweep_draw_interval_ms = RADAR_SETTINGS_DEFAULT_SWEEP_DRAW_INTERVAL_MS;
@@ -758,6 +759,8 @@ bool RadarSettings::isValid(const radar_settings_t &candidate)
         candidate.center_location_lat < -90.0 || candidate.center_location_lat > 90.0 ||
         candidate.center_location_lon < -180.0 || candidate.center_location_lon > 180.0 ||
         candidate.default_range_mi < 1 || candidate.default_range_mi > 250 ||
+        (candidate.display_type != RADAR_DISPLAY_TYPE_720_720_4_INCH &&
+         candidate.display_type != RADAR_DISPLAY_TYPE_800_800_3_4_INCH) ||
         candidate.sweep_step_deg < RADAR_SETTINGS_MIN_SWEEP_STEP_DEG ||
         candidate.sweep_step_deg > RADAR_SETTINGS_MAX_SWEEP_STEP_DEG ||
         candidate.sweep_draw_interval_ms < RADAR_SETTINGS_MIN_SWEEP_DRAW_INTERVAL_MS ||
@@ -896,6 +899,16 @@ bool RadarSettings::parseJson(const char *json, radar_settings_t *candidate,
         candidate->center_lat = parse_double_item(general, "lat", candidate->center_lat);
         candidate->center_lon = parse_double_item(general, "lon", candidate->center_lon);
         candidate->default_range_mi = parse_int_item(general, "defaultRange", candidate->default_range_mi);
+        cJSON *display_type = cJSON_GetObjectItemCaseSensitive(general, "displayType");
+        if (cJSON_IsString(display_type) && display_type->valuestring) {
+            candidate->display_type =
+                strcmp(display_type->valuestring, "800_800_3_4") == 0 ?
+                RADAR_DISPLAY_TYPE_800_800_3_4_INCH : RADAR_DISPLAY_TYPE_720_720_4_INCH;
+        } else if (cJSON_IsNumber(display_type)) {
+            candidate->display_type = display_type->valueint == RADAR_DISPLAY_TYPE_800_800_3_4_INCH ?
+                                      RADAR_DISPLAY_TYPE_800_800_3_4_INCH :
+                                      RADAR_DISPLAY_TYPE_720_720_4_INCH;
+        }
         cJSON *source = cJSON_GetObjectItemCaseSensitive(general, "centerSource");
         if (cJSON_IsString(source) && source->valuestring) {
             if (strcmp(source->valuestring, "gps") == 0) {
@@ -1217,6 +1230,9 @@ char *RadarSettings::toJson(const char *wifi_ssid) const
     cJSON_AddNumberToObject(location, "lat", center_location_lat);
     cJSON_AddNumberToObject(location, "lon", center_location_lon);
     cJSON_AddNumberToObject(general, "defaultRange", default_range_mi);
+    cJSON_AddStringToObject(general, "displayType",
+                            display_type == RADAR_DISPLAY_TYPE_800_800_3_4_INCH ?
+                            "800_800_3_4" : "720_720_4");
     cJSON_AddStringToObject(general, "dataSource",
                             aircraft_data_source == AIRCRAFT_DATA_SOURCE_ADSB_LOL ? "adsb_lol" :
                             (aircraft_data_source == AIRCRAFT_DATA_SOURCE_ADSB_FI ? "adsb_fi" :

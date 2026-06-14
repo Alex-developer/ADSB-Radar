@@ -20,16 +20,7 @@
 /* LCD display color space */
 #define BSP_LCD_COLOR_SPACE         (ESP_LCD_COLOR_SPACE_RGB)
 
-#if CONFIG_BSP_LCD_TYPE_800_800_3_4_INCH
-#define BSP_LCD_H_RES              (800)
-#define BSP_LCD_V_RES              (800)
 #define BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS (1500)
-#elif CONFIG_BSP_LCD_TYPE_720_720_4_INCH
-#define BSP_LCD_H_RES              (720)
-#define BSP_LCD_V_RES              (720)
-#define BSP_LCD_MIPI_DSI_LANE_BITRATE_MBPS (1500)
-#endif
-
 #define BSP_LCD_MIPI_DSI_LANE_NUM          (2)    // 2 data lanes
 #define BSP_MIPI_DSI_PHY_PWR_LDO_CHAN       (3)  // LDO_VO3 is connected to VDD_MIPI_DPHY
 #define BSP_MIPI_DSI_PHY_PWR_LDO_VOLTAGE_MV (2500)
@@ -37,6 +28,19 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum {
+    BSP_RUNTIME_LCD_TYPE_720_720_4_INCH = 0,
+    BSP_RUNTIME_LCD_TYPE_800_800_3_4_INCH = 1,
+} bsp_runtime_lcd_type_t;
+
+void bsp_display_set_runtime_lcd_type(bsp_runtime_lcd_type_t type);
+bsp_runtime_lcd_type_t bsp_display_get_runtime_lcd_type(void);
+int bsp_display_get_h_res(void);
+int bsp_display_get_v_res(void);
+
+#define BSP_LCD_H_RES              (bsp_display_get_h_res())
+#define BSP_LCD_V_RES              (bsp_display_get_v_res())
 
 /**
  * @brief BSP display configuration structure

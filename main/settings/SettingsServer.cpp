@@ -942,6 +942,20 @@ esp_err_t SettingsServer::wifiSaveHandler(httpd_req_t *req)
     return sendJsonStatus(req, true, "wifi saved");
 }
 
+/* Reboot the ESP32 after the browser has received a JSON acknowledgement. */
+esp_err_t SettingsServer::rebootHandler(httpd_req_t *req)
+{
+    if (owner) {
+        owner->set_data_status("REBOOT");
+        owner->update_oled_activity("REBOOT");
+    }
+
+    esp_err_t ret = sendJsonStatus(req, true, "rebooting");
+    vTaskDelay(pdMS_TO_TICKS(250));
+    esp_restart();
+    return ret;
+}
+
 /* Start the station-mode HTTP server and register all settings routes. */
 bool SettingsServer::start()
 {
@@ -954,7 +968,7 @@ bool SettingsServer::start()
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
-    config.max_uri_handlers = 14;
+    config.max_uri_handlers = 15;
     config.stack_size = 10240;
     config.lru_purge_enable = true;
     config.uri_match_fn = httpd_uri_match_wildcard;
@@ -1017,6 +1031,11 @@ bool SettingsServer::start()
     wifi_save_uri.method = HTTP_POST;
     wifi_save_uri.handler = RadarApp::settings_wifi_save_handler_entry;
 
+    httpd_uri_t reboot_uri = {};
+    reboot_uri.uri = "/api/reboot";
+    reboot_uri.method = HTTP_POST;
+    reboot_uri.handler = RadarApp::settings_reboot_handler_entry;
+
     httpd_uri_t page_uri = {};
     page_uri.uri = "/*";
     page_uri.method = HTTP_GET;
@@ -1032,6 +1051,7 @@ bool SettingsServer::start()
         httpd_register_uri_handler(owner->portal_httpd, &location_search_uri) != ESP_OK ||
         httpd_register_uri_handler(owner->portal_httpd, &wifi_scan_uri) != ESP_OK ||
         httpd_register_uri_handler(owner->portal_httpd, &wifi_save_uri) != ESP_OK ||
+        httpd_register_uri_handler(owner->portal_httpd, &reboot_uri) != ESP_OK ||
         httpd_register_uri_handler(owner->portal_httpd, &page_uri) != ESP_OK) {
         httpd_stop(owner->portal_httpd);
         owner->portal_httpd = NULL;
